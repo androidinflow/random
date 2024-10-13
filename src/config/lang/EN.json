@@ -1,7 +1,7 @@
 {
-    "START": "🎭 Welcome to Anonymous Chat! 🎭\n\nThis app allows you to chat anonymously with random people from around the world. It's a great way to meet new friends, practice languages, or just have fun conversations!\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n👥 /users - See current activity\n🏓 /ping - Check bot status\n\nEnjoy your anonymous chats! 😊",
+    "START": "🎭 Welcome to Anonymous Chat! 🎭\n\nThis app allows you to chat anonymously with random people from around the world. It's a great way to meet new friends, practice languages, or just have fun conversations!\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image (currently in development)\n\nEnjoy your anonymous chats! 😊",
 
-    "HELP": "📚 Available Commands:\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n👥 /users - See current activity\n🏓 /ping - Check bot status\n\nRemember, your privacy is important to us. Never share personal information with strangers.",
+    "HELP": "📚 Available Commands:\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image (currently in development)\n\nRemember, your privacy is important to us. Never share personal information with strangers.",
 
     "PING": "🏓 Pong! Bot is alive and kicking! Ready to connect you with chat partners.",
 

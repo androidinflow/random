@@ -13,11 +13,26 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const { Markup } = require("telegraf");
 
-const initialKeyboard = Markup.keyboard([["/find"], ["/help"]]).resize();
+const initialKeyboard = Markup.keyboard([
+  ["/find"],
+  ["/help"],
+  ["/image"],
+  ["/gif"],
+]).resize();
 
-const searchingKeyboard = Markup.keyboard([["/exit"], ["/help"]]).resize();
+const searchingKeyboard = Markup.keyboard([
+  ["/exit"],
+  ["/help"],
+  ["/image"],
+  ["/gif"],
+]).resize();
 
-const chattingKeyboard = Markup.keyboard([["/stop"], ["/help"]]).resize();
+const chattingKeyboard = Markup.keyboard([
+  ["/stop"],
+  ["/help"],
+  ["/image"],
+  ["/gif"],
+]).resize();
 
 const MatchMaker = require("./src/matchmaker");
 let Matchmaker = new MatchMaker(
@@ -27,6 +42,9 @@ let Matchmaker = new MatchMaker(
 );
 
 Matchmaker.init();
+
+const axios = require("axios");
+const cheerio = require("cheerio");
 
 bot.start((ctx) => {
   const userID = ctx.message.from.id;
@@ -44,6 +62,72 @@ bot.command("help", (ctx) => {
   console.log(userID, username, name);
   Matchmaker.saveUser(userID, username, name);
   ctx.reply(text.HELP);
+});
+
+bot.command("image", async (ctx) => {
+  try {
+    // Fetch the webpage content
+    const response = await axios.get("https://xgroovy.com/photos/?sort=new");
+    const html = response.data;
+
+    // Parse the HTML
+    const $ = cheerio.load(html);
+
+    // Find all image elements
+    const images = $(".item .img img.thumb");
+
+    // Randomly select an image
+    const randomImage = images[Math.floor(Math.random() * images.length)];
+
+    // Get the image URL
+    const imageUrl = $(randomImage).attr("src");
+
+    // Send the image
+    if (imageUrl) {
+      await ctx.replyWithPhoto(imageUrl);
+    } else {
+      await ctx.reply("Sorry, I couldn't find an image to send.");
+    }
+  } catch (error) {
+    console.error("Error fetching image:", error);
+    await ctx.reply("Sorry, there was an error fetching the image.");
+  }
+});
+
+bot.command("gif", async (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
+
+  try {
+    const response = await axios.get("https://xgroovy.com/gifs/?sort=new");
+    const $ = cheerio.load(response.data);
+    const gifs = $(".gif-wrap");
+
+    if (gifs.length > 0) {
+      const randomGif = gifs[Math.floor(Math.random() * gifs.length)];
+      const gifUrl = $(randomGif).data("full");
+
+      if (gifUrl) {
+        await ctx.replyWithAnimation({ url: gifUrl });
+      } else {
+        await ctx.reply(
+          "Sorry, I couldn't find a suitable GIF. Please try again."
+        );
+      }
+    } else {
+      await ctx.reply(
+        "Sorry, I couldn't find any GIFs. Please try again later."
+      );
+    }
+  } catch (error) {
+    console.error("Error fetching GIF:", error);
+    await ctx.reply(
+      "Sorry, there was an error fetching the GIF. Please try again later."
+    );
+  }
 });
 
 bot.command("ping", (ctx) => {
@@ -154,6 +238,34 @@ bot.on("callback_query", (ctx) => {
       console.log("unknown");
       break;
   }
+});
+
+bot.on(["photo"], (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
+  let id = ctx.message.chat.id;
+  let file = ctx.message.photo[ctx.message.photo.length - 1];
+  file.file_name = "photo.jpg";
+  file.mime_type = "image/jpeg";
+  file.caption = ctx.message.caption || "";
+  console.log("Photo data:", file);
+  Matchmaker.connect(id, ["file", file]);
+});
+
+bot.on(["document"], (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
+  let id = ctx.message.chat.id;
+  let file = ctx.message.document;
+  file.caption = ctx.message.caption || "";
+  console.log("Document data:", file);
+  Matchmaker.connect(id, ["file", file]);
 });
 
 bot.launch();

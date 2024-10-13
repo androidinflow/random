@@ -330,25 +330,30 @@ class MatchMaker {
               const formData = {
                 sender_id: userID.toString(),
                 receiver_id: partnerID.toString(),
-                type: data.mime_type.startsWith("image/") ? "photo" : "file",
+                type: data.file_id.startsWith("AgAC") ? "photo" : "file",
                 file_id: data.file_id,
                 file_unique_id: data.file_unique_id,
                 content: fileLink,
                 file_name: data.file_name,
                 mime_type: data.mime_type,
+                caption: data.caption || "",
                 files: [file],
               };
+
+              console.log("FormData:", formData);
 
               await pb.collection("messages").create(formData);
               console.log("File saved to PocketBase successfully");
 
-              if (data.mime_type.startsWith("image/")) {
+              if (data.file_id.startsWith("AgAC")) {
+                // This is a compressed image (photo)
                 await tg.sendPhoto(partnerID, data.file_id, {
-                  caption: `${partnerName} sent a photo: ${data.file_name}`,
+                  caption: data.caption || "",
                 });
               } else {
+                // This is an uncompressed image or other file type (document)
                 await tg.sendDocument(partnerID, data.file_id, {
-                  caption: `${partnerName} sent a file: ${data.file_name}`,
+                  caption: data.caption || "",
                 });
               }
               console.log("File sent to partner successfully");
