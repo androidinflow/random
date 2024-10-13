@@ -1,41 +1,43 @@
 {
-    "START": "Welcome to Anonymous Chat\n\n/find to find a chat partner\n/next to stop chatting and find another partner\n/stop to stop chatting\n/exit to stop searching for a chat partner\n\n/ping to check bot status\n/users to see current active users\n\n/contribute to contribute to the project/report bugs",
-    "HELP": "/find to find a chat partner\n/next to stop chatting and find another partner\n/stop to stop chatting\n/exit to stop searching for a chat partner\n\n/contribute to contribute to the project/report bugs",
-    "CONTRIBUTE": "If you want to contribute to the bot\n\nsuch as:\n- adding features\n- reporting bugs\n- etc\n\nyou can pull request or create an issue on GitHub",
-    "PING": "Pongg 🏓",
+    "START": "🎭 Welcome to Anonymous Chat! 🎭\n\nThis app allows you to chat anonymously with random people from around the world. It's a great way to meet new friends, practice languages, or just have fun conversations!\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n👥 /users - See current activity\n🏓 /ping - Check bot status\n\nEnjoy your anonymous chats! 😊",
+
+    "HELP": "📚 Available Commands:\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n👥 /users - See current activity\n🏓 /ping - Check bot status\n\nRemember, your privacy is important to us. Never share personal information with strangers.",
+
+    "PING": "🏓 Pong! Bot is alive and kicking! Ready to connect you with chat partners.",
+
     "CREATE_ROOM": {
-        "SUCCESS_1": "Chat partner found"
+        "SUCCESS_1": "🎉 Chat partner found! Happy chatting! Remember to be respectful and have fun!"
     },
+
     "FIND": {
-        
-        "WARNING_1": "You are already in the Queue",
-        "WARNING_2": "You are already in a chat",
-        "LOADING": "Searching for a partner..."
+        "WARNING_1": "⚠️ You're already in the queue. Please be patient! We're working on finding you a great chat partner.",
+        "WARNING_2": "⚠️ You're already in a chat. Use /stop to end it first if you want to find a new partner.",
+        "LOADING": "🔎 Still searching for a partner... Please be patient! Good conversations are worth the wait!"
     },
+
     "NEXT": {
-        "SUCCESS_1": "You have left the conversation",
-        "SUCCESS_2": "Your partner has ended the conversation",
-        "WARNING_1": "You don't have a chat partner\n\n/find to search for a chat partner"
+        "SUCCESS_1": "👋 You've left the conversation. Use /find to chat with someone new!",
+        "SUCCESS_2": "👋 Your partner has ended the conversation. Feel free to /find another chat!",
+        "WARNING_1": "⚠️ You don't have a chat partner.\n\n🔍 Use /find to search for one and start a new conversation!"
     },
+
     "STOP": {
-        "SUCCESS_1": "You have left the conversation",
-        "SUCCESS_2": "Your partner has ended the conversation",
-        "SUCCESS_3": "You have been removed from the queue",
-        "WARNING_1": "You don't have a chat partner and are not in the queue\n\n/find to search for a chat partner"
+        "SUCCESS_1": "👋 You've left the conversation. Thanks for chatting! Hope you had a great time.",
+        "SUCCESS_2": "👋 Your partner has ended the conversation. We hope you enjoyed the chat!",
+        "SUCCESS_3": "✅ You've been removed from the queue. Feel free to /find again when you're ready!",
+        "WARNING_1": "⚠️ You're not in a chat or queue.\n\n🔍 Use /find to start searching and meet someone new!"
     },
+
     "EXIT": {
-        "SUCCESS_1": "Searching for a chat partner has been stopped",
-        "WARNING_1": "You are not in the queue or in a chat"
+        "SUCCESS_1": "✅ Search cancelled. You're no longer in the queue. Ready to try again? Just use /find!",
+        "WARNING_1": "⚠️ You're not in the queue or in a chat. Use /find when you're ready to start!"
     },
+
     "CONNECT": {
-        "WARNING_1": "You don't have a chat partner\n\n/find to search for a chat partner"
+        "WARNING_1": "⚠️ You don't have a chat partner.\n\n🔍 Use /find to search for one and start an exciting conversation!"
     },
-    "USER_SEND_PHOTO": {
-        "WARNING_1": "ℹ️INFO \nYour partner sent a photo, do you want to open it?\n\n⚠️ATTENTION! \nThe photo sent may not be appropriate to view"
-    },
-    "USER_SEND_VIDEO": {
-        "WARNING_1": "ℹ️INFO \nYour partner sent a video, do you want to open it?\n\n⚠️ATTENTION! \nThe video sent may not be appropriate to view"
-    },
-    "ACTIVE_USER": "Currently, there are ${totalUser} people using anonymous-chat.\n\nQueue: ${totalUserInQueue}\nConversations: ${totalUserInRoom}",
-    "ERROR": "An error occurred. Please try again later."
+
+    "ACTIVE_USER": "👥 Current Anonymous Chat Activity:\n\n🌐 Total Users: ${totalUser}\n🕰️ In Queue: ${totalUserInQueue}\n💬 Active Chats: ${totalUserInRoom}\n\nJoin the fun and start chatting now!",
+
+    "ERROR": "❌ Oops! Something went wrong. Please try again later. We're working hard to keep the conversations flowing smoothly!"
 }

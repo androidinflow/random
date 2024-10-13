@@ -10,6 +10,12 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 class MatchMaker {
+  constructor(initialKeyboard, searchingKeyboard, chattingKeyboard) {
+    this.initialKeyboard = initialKeyboard;
+    this.searchingKeyboard = searchingKeyboard;
+    this.chattingKeyboard = chattingKeyboard;
+  }
+
   async init() {
     setInterval(async () => {
       try {
@@ -35,7 +41,7 @@ class MatchMaker {
         participans: newParticipants,
       });
       newParticipants.forEach((id) => {
-        tg.sendMessage(id, text.CREATE_ROOM.SUCCESS_1);
+        tg.sendMessage(id, text.CREATE_ROOM.SUCCESS_1, this.chattingKeyboard);
       });
     } catch (err) {
       console.error("Error creating room:", err);
@@ -91,35 +97,12 @@ class MatchMaker {
       }
 
       // If user is neither in queue nor in a room, add them to the queue
-      tg.sendMessage(userID, text.FIND.LOADING);
+      //tg.sendMessage(userID, text.FIND.LOADING);
       await pb.collection("queues").create({ user_id: userID });
       console.log(`User ${userID} added to queue successfully`);
     } catch (err) {
       console.error("Error in find method:", err);
       tg.sendMessage(userID, text.ERROR);
-    }
-  }
-
-  async next(userID) {
-    try {
-      const room = await pb
-        .collection("rooms")
-        .getFirstListItem(`participans~"${userID}"`);
-      if (room) {
-        await pb.collection("rooms").delete(room.id);
-        room.participans.forEach((id) => {
-          if (userID === id) {
-            tg.sendMessage(userID, text.NEXT.SUCCESS_1);
-            this.find(userID);
-          } else {
-            tg.sendMessage(id, text.NEXT.SUCCESS_2);
-          }
-        });
-      } else {
-        tg.sendMessage(userID, text.NEXT.WARNING_1);
-      }
-    } catch (err) {
-      console.error("Error in next:", err);
     }
   }
 
@@ -145,9 +128,9 @@ class MatchMaker {
         await pb.collection("rooms").delete(room.id);
         room.participans.forEach((id) => {
           if (userID === id) {
-            tg.sendMessage(userID, text.STOP.SUCCESS_1);
+            tg.sendMessage(userID, text.STOP.SUCCESS_1, this.initialKeyboard);
           } else {
-            tg.sendMessage(id, text.STOP.SUCCESS_2);
+            tg.sendMessage(id, text.STOP.SUCCESS_2, this.initialKeyboard);
           }
         });
         return;
@@ -162,7 +145,7 @@ class MatchMaker {
       } catch (err) {
         if (err.status === 404) {
           // User is not in the queue either
-          tg.sendMessage(userID, text.STOP.WARNING_1);
+          tg.sendMessage(userID, text.STOP.WARNING_1, this.initialKeyboard);
           return;
         } else {
           throw err;
@@ -172,14 +155,14 @@ class MatchMaker {
       if (queue) {
         // If user is in the queue, remove them
         await pb.collection("queues").delete(queue.id);
-        tg.sendMessage(userID, text.STOP.SUCCESS_3);
+        tg.sendMessage(userID, text.STOP.SUCCESS_3, this.initialKeyboard);
       } else {
         // This shouldn't happen, but just in case
-        tg.sendMessage(userID, text.STOP.WARNING_1);
+        tg.sendMessage(userID, text.STOP.WARNING_1, this.initialKeyboard);
       }
     } catch (err) {
       console.error("Error in stop:", err);
-      tg.sendMessage(userID, text.ERROR);
+      tg.sendMessage(userID, text.ERROR, this.initialKeyboard);
     }
   }
 
@@ -203,7 +186,7 @@ class MatchMaker {
       if (queue) {
         // If user is in queue, remove them
         await pb.collection("queues").delete(queue.id);
-        tg.sendMessage(userID, text.EXIT.SUCCESS_1);
+        tg.sendMessage(userID, text.EXIT.SUCCESS_1, this.initialKeyboard);
         return;
       }
 
@@ -216,7 +199,7 @@ class MatchMaker {
       } catch (err) {
         if (err.status === 404) {
           // User is not in a room either
-          tg.sendMessage(userID, text.EXIT.WARNING_1);
+          tg.sendMessage(userID, text.EXIT.WARNING_1, this.initialKeyboard);
           return;
         } else {
           throw err;
@@ -228,18 +211,18 @@ class MatchMaker {
         await pb.collection("rooms").delete(room.id);
         room.participans.forEach((id) => {
           if (userID === id) {
-            tg.sendMessage(userID, text.STOP.SUCCESS_1);
+            tg.sendMessage(userID, text.STOP.SUCCESS_1, this.initialKeyboard);
           } else {
-            tg.sendMessage(id, text.STOP.SUCCESS_2);
+            tg.sendMessage(id, text.STOP.SUCCESS_2, this.initialKeyboard);
           }
         });
       } else {
         // This shouldn't happen, but just in case
-        tg.sendMessage(userID, text.EXIT.WARNING_1);
+        tg.sendMessage(userID, text.EXIT.WARNING_1, this.initialKeyboard);
       }
     } catch (err) {
       console.error("Error in exit:", err);
-      tg.sendMessage(userID, text.ERROR);
+      tg.sendMessage(userID, text.ERROR, this.initialKeyboard);
     }
   }
 
@@ -248,9 +231,39 @@ class MatchMaker {
     console.log("Message data:", data);
 
     try {
-      const room = await pb
-        .collection("rooms")
-        .getFirstListItem(`participans~"${userID}"`);
+      // Check if user is in a queue
+      let queue;
+      try {
+        queue = await pb
+          .collection("queues")
+          .getFirstListItem(`user_id="${userID}"`);
+      } catch (err) {
+        if (err.status !== 404) {
+          throw err;
+        }
+      }
+
+      if (queue) {
+        await tg.sendMessage(userID, text.FIND.LOADING);
+        return;
+      }
+
+      // Check if user is in a room
+      let room;
+      try {
+        room = await pb
+          .collection("rooms")
+          .getFirstListItem(`participans~"${userID}"`);
+      } catch (err) {
+        if (err.status === 404) {
+          // User is not in a room
+          await tg.sendMessage(userID, text.CONNECT.WARNING_1);
+          return;
+        } else {
+          throw err;
+        }
+      }
+
       if (room) {
         const participans = room.participans;
         const index = participans.indexOf(userID);
@@ -333,11 +346,10 @@ class MatchMaker {
             console.log(`Unsupported message type: ${type}`);
             break;
         }
-      } else {
-        await tg.sendMessage(userID, text.CONNECT.WARNING_1);
       }
     } catch (err) {
       console.error("Error in connect method:", err);
+      await tg.sendMessage(userID, text.ERROR);
     }
   }
 
@@ -402,12 +414,50 @@ class MatchMaker {
       ? tg[type](partnerID, dataToSend, replyToPlus)
       : tg[type](partnerID, dataToSend, replyToMinus);
   }
+
+  async saveUser(userID, username, name) {
+    try {
+      // Check if the user already exists
+      let existingUser;
+      try {
+        existingUser = await pb
+          .collection("telegram_users")
+          .getFirstListItem(`telegram_id="${userID}"`);
+      } catch (error) {
+        if (error.status !== 404) {
+          throw error;
+        }
+      }
+
+      const userData = {
+        username: username,
+        name: name || null,
+        last_active: new Date().toISOString(),
+      };
+
+      if (existingUser) {
+        // Update the existing user
+        await pb.collection("telegram_users").update(existingUser.id, userData);
+        console.log(`User ${userID} updated successfully`);
+      } else {
+        // Create a new user
+        await pb.collection("telegram_users").create({
+          telegram_id: userID.toString(),
+          created_at: new Date().toISOString(),
+          ...userData,
+        });
+        console.log(`User ${userID} created successfully`);
+      }
+    } catch (err) {
+      console.error("Error saving user:", err);
+    }
+  }
 }
 
 async function uploadFileToPocketBase(fileLink, fileName, fileType) {
   const response = await fetch(fileLink);
-  const buffer = await response.buffer();
-  const file = new File([buffer], fileName, { type: fileType });
+  const arrayBuffer = await response.arrayBuffer();
+  const file = new File([arrayBuffer], fileName, { type: fileType });
   return file;
 }
 

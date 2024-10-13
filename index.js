@@ -9,72 +9,110 @@ const port = process.env.PORT || 5000;
 const { Telegraf } = require("telegraf");
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
+const { Markup } = require("telegraf");
+
+const initialKeyboard = Markup.keyboard([["/find"], ["/help"]]).resize();
+
+const searchingKeyboard = Markup.keyboard([["/exit"], ["/help"]]).resize();
+
+const chattingKeyboard = Markup.keyboard([["/stop"], ["/help"]]).resize();
+
 const MatchMaker = require("./src/matchmaker");
-let Matchmaker = new MatchMaker();
+let Matchmaker = new MatchMaker(
+  initialKeyboard,
+  searchingKeyboard,
+  chattingKeyboard
+);
 
 Matchmaker.init();
 
 bot.start((ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
   ctx.reply(text.START);
 });
 
-bot.command("contribute", (ctx) => {
-  ctx.reply(text.CONTRIBUTE, {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: "Open GitHub",
-            url: "https://github.com/Shiyinq/anonim-chat",
-          },
-        ],
-      ],
-    },
-  });
-});
-
 bot.command("help", (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
   ctx.reply(text.HELP);
 });
 
 bot.command("ping", (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
   const start = new Date();
   const s = start / 1000 - ctx.message.date;
   ctx.replyWithHTML(`${text.PING} - <code>⏱ ${s.toFixed(3)} s</code>`);
 });
 
 bot.command("find", (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
   let id = ctx.message.chat.id;
+  ctx.reply(text.FIND.LOADING, searchingKeyboard);
   Matchmaker.find(id);
 });
 
-bot.command("next", (ctx) => {
-  let id = ctx.message.chat.id;
-  Matchmaker.next(id);
-});
-
 bot.command("stop", (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
   let id = ctx.message.chat.id;
   Matchmaker.stop(id);
 });
 
 bot.command("exit", (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
   let id = ctx.message.chat.id;
   Matchmaker.exit(id);
 });
 
 bot.command("users", (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
   let id = ctx.message.chat.id;
   Matchmaker.currentActiveUser(id);
 });
 
 bot.on("text", (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
   let id = ctx.message.chat.id;
   let message = ctx.message;
   Matchmaker.connect(id, ["text", message]);
 });
 
 bot.on(["document", "audio", "video", "voice", "photo", "sticker"], (ctx) => {
+  const userID = ctx.message.from.id;
+  const username = ctx.message.from.username || "Anonymous";
+  const name = ctx.message.from.first_name || "Anonymous";
+  console.log(userID, username, name);
+  Matchmaker.saveUser(userID, username, name);
   let id = ctx.message.chat.id;
   let file;
 
