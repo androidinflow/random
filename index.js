@@ -18,6 +18,11 @@ const mainKeyboard = Markup.keyboard([
   ["🖼️ Image", "🎞️ GIF"],
 ]).resize();
 
+const lockedMediaKeyboard = Markup.keyboard([
+  ["🔍 Find Chat"],
+  ["🔒 Image", "🔒 GIF"],
+]).resize();
+
 const searchingKeyboard = Markup.keyboard([
   ["🚪 Exit"],
   ["🖼️ Image", "🎞️ GIF"],
@@ -38,13 +43,29 @@ Matchmaker.init();
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-bot.start((ctx) => {
+bot.start(async (ctx) => {
   const userID = ctx.message.from.id;
   const username = ctx.message.from.username || "Anonymous";
   const name = ctx.message.from.first_name || "Anonymous";
   console.log(userID, username, name);
-  Matchmaker.saveUser(userID, username, name);
-  ctx.reply(text.START, mainKeyboard);
+
+  await Matchmaker.saveUser(userID, username, name);
+
+  const startPayload = ctx.startPayload;
+  if (startPayload) {
+    await Matchmaker.handleReferral(userID, startPayload);
+  }
+
+  const referralLink = await Matchmaker.createReferralLink(userID);
+  if (referralLink) {
+    ctx.reply(
+      text.START +
+        `\n\nShare this link to invite friends and earn points: ${referralLink}`,
+      mainKeyboard
+    );
+  } else {
+    ctx.reply(text.START, mainKeyboard);
+  }
 });
 
 bot.command("gif", async (ctx) => {
@@ -107,7 +128,6 @@ bot.hears("🔍 Find Chat", (ctx) => {
   const name = ctx.message.from.first_name || "Anonymous";
   console.log(userID, username, name);
   Matchmaker.saveUser(userID, username, name);
-  ctx.reply(text.FIND.LOADING, Matchmaker.searchingKeyboard);
   Matchmaker.find(userID);
 });
 
@@ -116,65 +136,63 @@ bot.hears("🚪 Exit", (ctx) => {
   Matchmaker.exit(userID);
 });
 
-bot.hears("🎞️ GIF", async (ctx) => {
+bot.hears(["🖼️ Image", "🎞️ GIF", "🔒 Image", "🔒 GIF"], async (ctx) => {
+  const userID = ctx.message.from.id;
+  if (!(await Matchmaker.canUseMediaCommand(userID))) {
+    const referralLink = await Matchmaker.createReferralLink(userID);
+    ctx.reply(
+      text.MEDIA_LIMIT.replace("{referralLink}", referralLink),
+      lockedMediaKeyboard
+    );
+    return;
+  }
+
+  const isGif = ctx.message.text.includes("GIF");
   try {
     const randomPage = Math.floor(Math.random() * 100) + 1;
     const response = await axios.get(
-      `https://xgroovy.com/gifs/${randomPage}/?sort=new`
+      `https://xgroovy.com/${isGif ? "gifs" : "photos"}/${randomPage}/?sort=new`
     );
     const $ = cheerio.load(response.data);
-    const gifs = $(".gif-wrap");
-    if (gifs.length > 0) {
-      const randomGif = gifs[Math.floor(Math.random() * gifs.length)];
-      const gifUrl = $(randomGif).data("full");
-      if (gifUrl) {
-        await ctx.replyWithAnimation(
-          { url: gifUrl },
-          { reply_markup: mediaKeyboard }
-        );
+    const items = isGif ? $(".gif-wrap") : $(".item .img img.thumb");
+    if (items.length > 0) {
+      const randomItem = items[Math.floor(Math.random() * items.length)];
+      const itemUrl = isGif
+        ? $(randomItem).data("full")
+        : $(randomItem).attr("src");
+      if (itemUrl) {
+        if (isGif) {
+          await ctx.replyWithAnimation(
+            { url: itemUrl },
+            { reply_markup: mediaKeyboard }
+          );
+        } else {
+          await ctx.replyWithPhoto(itemUrl, { reply_markup: mediaKeyboard });
+        }
       } else {
         await ctx.reply(
-          "Sorry, I couldn't find a suitable GIF. Please try again.",
+          `Sorry, I couldn't find a suitable ${
+            isGif ? "GIF" : "image"
+          }. Please try again.`,
           { reply_markup: mainKeyboard }
         );
       }
     } else {
       await ctx.reply(
-        "Sorry, I couldn't find any GIFs. Please try again later.",
+        `Sorry, I couldn't find any ${
+          isGif ? "GIFs" : "images"
+        }. Please try again later.`,
         { reply_markup: mainKeyboard }
       );
     }
   } catch (error) {
-    console.error("Error fetching GIF:", error);
+    console.error(`Error fetching ${isGif ? "GIF" : "image"}:`, error);
     await ctx.reply(
-      "Sorry, there was an error fetching the GIF. Please try again later.",
+      `Sorry, there was an error fetching the ${
+        isGif ? "GIF" : "image"
+      }. Please try again later.`,
       { reply_markup: mainKeyboard }
     );
-  }
-});
-
-bot.hears("🖼️ Image", async (ctx) => {
-  try {
-    const randomPage = Math.floor(Math.random() * 100) + 1;
-    const response = await axios.get(
-      `https://xgroovy.com/photos/${randomPage}/?sort=new`
-    );
-    const $ = cheerio.load(response.data);
-    const images = $(".item .img img.thumb");
-    const randomImage = images[Math.floor(Math.random() * images.length)];
-    const imageUrl = $(randomImage).attr("src");
-    if (imageUrl) {
-      await ctx.replyWithPhoto(imageUrl, { reply_markup: mediaKeyboard });
-    } else {
-      await ctx.reply("Sorry, I couldn't find an image to send.", {
-        reply_markup: mainKeyboard,
-      });
-    }
-  } catch (error) {
-    console.error("Error fetching image:", error);
-    await ctx.reply("Sorry, there was an error fetching the image.", {
-      reply_markup: mainKeyboard,
-    });
   }
 });
 
@@ -216,9 +234,17 @@ bot.on(["document", "audio", "video", "voice", "photo", "sticker"], (ctx) => {
     file = ctx.message.photo[ctx.message.photo.length - 1];
     file.file_name = "photo.jpg";
     file.mime_type = "image/jpeg";
-  } else if (ctx.message.sticker) file = ctx.message.sticker;
+  } else if (ctx.message.sticker) {
+    file = ctx.message.sticker;
+    file.file_name = "sticker.webp";
+    file.mime_type = "image/webp";
+  }
 
-  file.file_name = file.file_name || `file.${file.mime_type.split("/")[1]}`;
+  if (file.mime_type) {
+    file.file_name = file.file_name || `file.${file.mime_type.split("/")[1]}`;
+  } else {
+    file.file_name = file.file_name || "file";
+  }
   Matchmaker.connect(id, ["file", file]);
 });
 

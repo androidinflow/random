@@ -1,5 +1,8 @@
 {
-    "START": "🎭 Welcome to Anonymous Chat! 🎭\n\nThis app allows you to chat anonymously with random people from around the world. It's a great way to meet new friends, practice languages, or just have fun conversations!\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image\n🎞️ /gif - Request a GIF\n\nEnjoy your anonymous chats! 😊",
+    "START": "🎭 Welcome to Anonymous Chat! 🎭\n\nThis app allows you to chat anonymously with random people from around the world. It's a great way to meet new friends, practice languages, or just have fun conversations!\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image\n🎞️ /gif - Request a GIF\n\nEnjoy your anonymous chats! 😊\n\nInvite friends to get unlimited access to images and GIFs!",
+
+    "MEDIA_LIMIT": "You've reached your media limit. Invite a friend to get unlimited access!\n\nShare this link to invite friends: {referralLink}",
+
 
     "HELP": "Here is how you can use the bot:\n\n- 🔍 Find Chat: Start searching for a chat partner.\n- 🛑 Stop: End your current chat.\n- 🚪 Exit: Leave the queue or chat.\n- ❓ Help: Get assistance with using the bot.",
 
