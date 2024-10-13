@@ -37,12 +37,22 @@ class MatchMaker {
 
   async createRoom(newParticipants) {
     try {
-      await pb.collection("rooms").create({
+      const room = await pb.collection("rooms").create({
         participans: newParticipants,
       });
-      newParticipants.forEach((id) => {
-        tg.sendMessage(id, text.CREATE_ROOM.SUCCESS_1, this.chattingKeyboard);
-      });
+
+      for (const id of newParticipants) {
+        const partnerId = newParticipants.find((pId) => pId !== id);
+        const partner = await pb
+          .collection("telegram_users")
+          .getFirstListItem(`telegram_id="${partnerId}"`);
+        const partnerName = partner.name || partner.username || "Anonymous";
+        tg.sendMessage(
+          id,
+          `${text.CREATE_ROOM.SUCCESS_1}\nYou are connected with ${partnerName}.`,
+          this.chattingKeyboard
+        );
+      }
     } catch (err) {
       console.error("Error creating room:", err);
     }
