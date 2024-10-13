@@ -1,7 +1,7 @@
 {
-    "START": "🎭 Welcome to Anonymous Chat! 🎭\n\nThis app allows you to chat anonymously with random people from around the world. It's a great way to meet new friends, practice languages, or just have fun conversations!\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image (currently in development)\n\nEnjoy your anonymous chats! 😊",
+    "START": "🎭 Welcome to Anonymous Chat! 🎭\n\nThis app allows you to chat anonymously with random people from around the world. It's a great way to meet new friends, practice languages, or just have fun conversations!\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image\n🎞️ /gif - Request a GIF\n\nEnjoy your anonymous chats! 😊",
 
-    "HELP": "📚 Available Commands:\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image (currently in development)\n\nRemember, your privacy is important to us. Never share personal information with strangers.",
+    "HELP": "📚 Available Commands:\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image\n🎞️ /gif - Request a GIF\n\n",
 
     "PING": "🏓 Pong! Bot is alive and kicking! Ready to connect you with chat partners.",
 
@@ -13,6 +13,7 @@
         "WARNING_1": "⚠️ You're already in the queue. Please be patient! We're working on finding you a great chat partner.",
         "WARNING_2": "⚠️ You're already in a chat. Use /stop to end it first if you want to find a new partner.",
         "LOADING": "🔎 Still searching for a partner... Please be patient! Good conversations are worth the wait!"
+        
     },
 
     "NEXT": {

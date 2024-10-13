@@ -13,30 +13,38 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 const { Markup } = require("telegraf");
 
-const initialKeyboard = Markup.keyboard([
-  ["/find"],
-  ["/help"],
-  ["/image"],
-  ["/gif"],
-]).resize();
+const mainKeyboard = Markup.inlineKeyboard([
+  [
+    Markup.button.callback("🔍 Find", "find"),
+    Markup.button.callback("❓ Help", "help"),
+  ],
+  [
+    Markup.button.callback("🖼️ Image", "image"),
+    Markup.button.callback("🎞️ GIF", "gif"),
+  ],
+]);
 
-const searchingKeyboard = Markup.keyboard([
-  ["/exit"],
-  ["/help"],
-  ["/image"],
-  ["/gif"],
-]).resize();
+const searchingKeyboard = Markup.inlineKeyboard([
+  [
+    Markup.button.callback("🚪 Exit", "exit"),
+    Markup.button.callback("❓ Help", "help"),
+  ],
+  [
+    Markup.button.callback("🖼️ Image", "image"),
+    Markup.button.callback("🎞️ GIF", "gif"),
+  ],
+]);
 
-const chattingKeyboard = Markup.keyboard([
-  ["/stop"],
-  ["/help"],
-  ["/image"],
-  ["/gif"],
-]).resize();
+const chattingKeyboard = Markup.inlineKeyboard([
+  [
+    Markup.button.callback("🛑 Stop", "stop"),
+    Markup.button.callback("❓ Help", "help"),
+  ],
+]);
 
 const MatchMaker = require("./src/matchmaker");
 let Matchmaker = new MatchMaker(
-  initialKeyboard,
+  mainKeyboard,
   searchingKeyboard,
   chattingKeyboard
 );
@@ -52,7 +60,7 @@ bot.start((ctx) => {
   const name = ctx.message.from.first_name || "Anonymous";
   console.log(userID, username, name);
   Matchmaker.saveUser(userID, username, name);
-  ctx.reply(text.START);
+  ctx.reply(text.START, mainKeyboard);
 });
 
 bot.command("help", (ctx) => {
@@ -66,37 +74,28 @@ bot.command("help", (ctx) => {
 
 bot.command("image", async (ctx) => {
   try {
-    // Generate a random page number between 1 and 100
     const randomPage = Math.floor(Math.random() * 100) + 1;
-
-    // Fetch the webpage content with the random page number
     const response = await axios.get(
       `https://xgroovy.com/photos/${randomPage}/?sort=new`
     );
-    const html = response.data;
-
-    // Parse the HTML
-
-    const $ = cheerio.load(html);
-
-    // Find all image elements
+    const $ = cheerio.load(response.data);
     const images = $(".item .img img.thumb");
-
-    // Randomly select an image
     const randomImage = images[Math.floor(Math.random() * images.length)];
-
-    // Get the image URL
     const imageUrl = $(randomImage).attr("src");
-
-    // Send the image
     if (imageUrl) {
-      await ctx.replyWithPhoto(imageUrl);
+      await ctx.replyWithPhoto(imageUrl, {
+        reply_markup: mediaKeyboard.reply_markup,
+      });
     } else {
-      await ctx.reply("Sorry, I couldn't find an image to send.");
+      await ctx.reply("Sorry, I couldn't find an image to send.", {
+        reply_markup: mainKeyboard.reply_markup,
+      });
     }
   } catch (error) {
     console.error("Error fetching image:", error);
-    await ctx.reply("Sorry, there was an error fetching the image.");
+    await ctx.reply("Sorry, there was an error fetching the image.", {
+      reply_markup: mainKeyboard.reply_markup,
+    });
   }
 });
 
@@ -108,36 +107,37 @@ bot.command("gif", async (ctx) => {
   Matchmaker.saveUser(userID, username, name);
 
   try {
-    // Generate a random page number between 1 and 100
     const randomPage = Math.floor(Math.random() * 100) + 1;
-
-    // Fetch the webpage content with the random page number
     const response = await axios.get(
       `https://xgroovy.com/gifs/${randomPage}/?sort=new`
     );
     const $ = cheerio.load(response.data);
     const gifs = $(".gif-wrap");
-
     if (gifs.length > 0) {
       const randomGif = gifs[Math.floor(Math.random() * gifs.length)];
       const gifUrl = $(randomGif).data("full");
-
       if (gifUrl) {
-        await ctx.replyWithAnimation({ url: gifUrl });
+        await ctx.replyWithAnimation(
+          { url: gifUrl },
+          { reply_markup: mediaKeyboard.reply_markup }
+        );
       } else {
         await ctx.reply(
-          "Sorry, I couldn't find a suitable GIF. Please try again."
+          "Sorry, I couldn't find a suitable GIF. Please try again.",
+          { reply_markup: mainKeyboard.reply_markup }
         );
       }
     } else {
       await ctx.reply(
-        "Sorry, I couldn't find any GIFs. Please try again later."
+        "Sorry, I couldn't find any GIFs. Please try again later.",
+        { reply_markup: mainKeyboard.reply_markup }
       );
     }
   } catch (error) {
     console.error("Error fetching GIF:", error);
     await ctx.reply(
-      "Sorry, there was an error fetching the GIF. Please try again later."
+      "Sorry, there was an error fetching the GIF. Please try again later.",
+      { reply_markup: mainKeyboard.reply_markup }
     );
   }
 });
@@ -228,26 +228,122 @@ bot.on(["document", "audio", "video", "voice", "photo", "sticker"], (ctx) => {
   Matchmaker.connect(id, ["file", file]);
 });
 
-bot.on("callback_query", (ctx) => {
-  let query = ctx.callbackQuery.data.split("-");
+bot.on("callback_query", async (ctx) => {
+  const action = ctx.callbackQuery.data;
+  const userID = ctx.callbackQuery.from.id;
 
-  switch (query[0]) {
-    case "openPhoto":
-      let urlPhoto = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/photos/${query[1]}`;
-      ctx
-        .deleteMessage()
-        .then(ctx.replyWithPhoto({ url: urlPhoto }))
-        .catch((err) => console.log(err));
+  switch (action) {
+    case "find":
+      await ctx.answerCbQuery();
+      ctx.reply(text.FIND.LOADING, searchingKeyboard);
+      Matchmaker.find(userID);
       break;
-    case "openVideo":
-      let urlVideo = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/videos/${query[1]}`;
-      ctx
-        .deleteMessage()
-        .then(ctx.replyWithVideo({ url: urlVideo }))
-        .catch((err) => console.log(err));
+    case "help":
+      await ctx.answerCbQuery();
+      ctx.reply(text.HELP, mainKeyboard);
       break;
-    default:
-      console.log("unknown");
+    case "image":
+      await ctx.answerCbQuery();
+      try {
+        const randomPage = Math.floor(Math.random() * 100) + 1;
+        const response = await axios.get(
+          `https://xgroovy.com/photos/${randomPage}/?sort=new`
+        );
+        const $ = cheerio.load(response.data);
+        const images = $(".item .img img.thumb");
+        const randomImage = images[Math.floor(Math.random() * images.length)];
+        const imageUrl = $(randomImage).attr("src");
+        if (imageUrl) {
+          await ctx.replyWithPhoto(imageUrl, {
+            reply_markup: mediaKeyboard.reply_markup,
+          });
+        } else {
+          await ctx.reply("Sorry, I couldn't find an image to send.", {
+            reply_markup: mainKeyboard.reply_markup,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching image:", error);
+        await ctx.reply("Sorry, there was an error fetching the image.", {
+          reply_markup: mainKeyboard.reply_markup,
+        });
+      }
+      break;
+    case "gif":
+      await ctx.answerCbQuery();
+      try {
+        const randomPage = Math.floor(Math.random() * 100) + 1;
+        const response = await axios.get(
+          `https://xgroovy.com/gifs/${randomPage}/?sort=new`
+        );
+        const $ = cheerio.load(response.data);
+        const gifs = $(".gif-wrap");
+        if (gifs.length > 0) {
+          const randomGif = gifs[Math.floor(Math.random() * gifs.length)];
+          const gifUrl = $(randomGif).data("full");
+          if (gifUrl) {
+            await ctx.replyWithAnimation(
+              { url: gifUrl },
+              { reply_markup: mediaKeyboard.reply_markup }
+            );
+          } else {
+            await ctx.reply(
+              "Sorry, I couldn't find a suitable GIF. Please try again.",
+              { reply_markup: mainKeyboard.reply_markup }
+            );
+          }
+        } else {
+          await ctx.reply(
+            "Sorry, I couldn't find any GIFs. Please try again later.",
+            { reply_markup: mainKeyboard.reply_markup }
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching GIF:", error);
+        await ctx.reply(
+          "Sorry, there was an error fetching the GIF. Please try again later.",
+          { reply_markup: mainKeyboard.reply_markup }
+        );
+      }
+      break;
+    case "stop":
+      await ctx.answerCbQuery();
+      Matchmaker.stop(userID);
+      break;
+    case "exit":
+      await ctx.answerCbQuery();
+      Matchmaker.exit(userID);
+      break;
+    case "edit_profile":
+      await ctx.answerCbQuery();
+      ctx.reply(
+        "To edit your profile, use the following commands:\n\n/setbio [Your bio]\n/setage [Your age]\n/setgender [Your gender]"
+      );
+      break;
+    case "view_partner_profile":
+      await ctx.answerCbQuery();
+      const room = await Matchmaker.getUserRoom(userID);
+      if (room) {
+        const partnerID = room.participans.find(
+          (id) => id !== userID.toString()
+        );
+        const partnerProfile = await Matchmaker.getUserProfile(partnerID);
+        if (partnerProfile) {
+          const profileText = `
+👤 Partner's Profile:
+Name: ${partnerProfile.name || "Not set"}
+Username: ${partnerProfile.username || "Not set"}
+Age: ${partnerProfile.age || "Not set"}
+Gender: ${partnerProfile.gender || "Not set"}
+Bio: ${partnerProfile.bio || "Not set"}
+          `;
+          ctx.reply(profileText);
+        } else {
+          ctx.reply("Sorry, we couldn't fetch your partner's profile.");
+        }
+      } else {
+        ctx.reply("You're not currently in a chat with anyone.");
+      }
       break;
   }
 });
@@ -280,6 +376,55 @@ bot.on(["document"], (ctx) => {
   Matchmaker.connect(id, ["file", file]);
 });
 
+bot.command("profile", async (ctx) => {
+  const userID = ctx.message.from.id;
+  const profile = await Matchmaker.getUserProfile(userID);
+  if (profile) {
+    const profileText = `
+👤 Your Profile:
+Name: ${profile.name || "Not set"}
+Username: ${profile.username || "Not set"}
+Age: ${profile.age || "Not set"}
+Gender: ${profile.gender || "Not set"}
+Bio: ${profile.bio || "Not set"}
+    `;
+    ctx.reply(profileText, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Edit Profile", callback_data: "edit_profile" }],
+        ],
+      },
+    });
+  } else {
+    ctx.reply("Sorry, we couldn't fetch your profile. Please try again later.");
+  }
+});
+
+bot.command("setbio", async (ctx) => {
+  const userID = ctx.message.from.id;
+  const bio = ctx.message.text.split(" ").slice(1).join(" ");
+  await Matchmaker.updateUserProfile(userID, { bio });
+  ctx.reply("Your bio has been updated!");
+});
+
+bot.command("setage", async (ctx) => {
+  const userID = ctx.message.from.id;
+  const age = parseInt(ctx.message.text.split(" ")[1]);
+  if (isNaN(age) || age < 13 || age > 120) {
+    ctx.reply("Please provide a valid age between 13 and 120.");
+  } else {
+    await Matchmaker.updateUserProfile(userID, { age });
+    ctx.reply("Your age has been updated!");
+  }
+});
+
+bot.command("setgender", async (ctx) => {
+  const userID = ctx.message.from.id;
+  const gender = ctx.message.text.split(" ")[1];
+  await Matchmaker.updateUserProfile(userID, { gender });
+  ctx.reply("Your gender has been updated!");
+});
+
 bot.launch();
 
 app.get("/", (req, res) => res.send("Hello World!"));
@@ -287,3 +432,15 @@ app.get("/", (req, res) => res.send("Hello World!"));
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
 });
+
+// Add this near the top of your file, where you define other keyboards
+const mediaKeyboard = Markup.inlineKeyboard([
+  [
+    Markup.button.callback("🖼️ Another Image", "image"),
+    Markup.button.callback("🎞️ Another GIF", "gif"),
+  ],
+  [
+    Markup.button.callback("🔍 Find Chat", "find"),
+    Markup.button.callback("❓ Help", "help"),
+  ],
+]);
