@@ -279,6 +279,11 @@ class MatchMaker {
         const index = participans.indexOf(userID);
         const partnerID = participans[index === 1 ? 0 : 1];
 
+        const partner = await pb
+          .collection("telegram_users")
+          .getFirstListItem(`telegram_id="${partnerID}"`);
+        const partnerName = partner.name || partner.username || "Anonymous";
+
         const saveMessage = async (messageData) => {
           await pb.collection("messages").create(messageData);
         };
@@ -305,7 +310,7 @@ class MatchMaker {
                   "sendMessage"
                 );
               } else {
-                await tg.sendMessage(partnerID, data.text);
+                await tg.sendMessage(partnerID, `${partnerName}: ${data.text}`);
               }
             } catch (err) {
               console.error("Error saving or sending text message:", err);
@@ -339,11 +344,11 @@ class MatchMaker {
 
               if (data.mime_type.startsWith("image/")) {
                 await tg.sendPhoto(partnerID, data.file_id, {
-                  caption: `Photo: ${data.file_name}`,
+                  caption: `${partnerName} sent a photo: ${data.file_name}`,
                 });
               } else {
                 await tg.sendDocument(partnerID, data.file_id, {
-                  caption: `File: ${data.file_name}`,
+                  caption: `${partnerName} sent a file: ${data.file_name}`,
                 });
               }
               console.log("File sent to partner successfully");

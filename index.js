@@ -1,5 +1,7 @@
 require("dotenv").config();
 
+console.log(`Node.js version: ${process.version}`);
+
 const text = require("./src/config/lang/EN.json");
 
 const express = require("express");
