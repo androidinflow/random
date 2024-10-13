@@ -10,15 +10,9 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 class MatchMaker {
-  constructor(
-    initialKeyboard,
-    searchingKeyboard,
-    chattingKeyboard,
-    mainKeyboard
-  ) {
+  constructor(initialKeyboard, searchingKeyboard, mainKeyboard) {
     this.initialKeyboard = initialKeyboard;
     this.searchingKeyboard = searchingKeyboard;
-    this.chattingKeyboard = chattingKeyboard;
     this.mainKeyboard = mainKeyboard;
     this.startTimes = new Map(); // To track start times
   }
@@ -48,8 +42,13 @@ class MatchMaker {
         participans: newParticipants,
       });
 
+      //real one
+
       for (const id of newParticipants) {
-        const keyboard = Markup.keyboard([["🚪 Exit"]]).resize(); // Only Exit button
+        const keyboard = Markup.keyboard([
+          ["🚪 Exit"],
+          ["ℹ️ Partner Info"],
+        ]).resize(); // Only Exit button
         tg.sendMessage(id, `${text.CREATE_ROOM.SUCCESS_1}`, keyboard);
       }
     } catch (err) {
@@ -589,6 +588,43 @@ class MatchMaker {
     } catch (error) {
       console.error("Error in canUseMediaCommand:", error);
       return false;
+    }
+  }
+
+  async getRoom(userID) {
+    try {
+      const room = await pb
+        .collection("rooms")
+        .getFirstListItem(`participans~"${userID}"`);
+      return room;
+    } catch (error) {
+      if (error.status === 404) {
+        // No room found, which is fine
+        return null;
+      }
+      console.error("Error getting room:", error);
+      return null;
+    }
+  }
+
+  async getPartnerInfo(userID) {
+    try {
+      const room = await this.getRoom(userID);
+      if (!room || !room.participans) return null;
+
+      const partnerID = room.participans.find((id) => id !== userID);
+      if (!partnerID) return null;
+
+      const partner = await this.getUser(partnerID);
+      if (!partner) return null;
+
+      return {
+        name: partner.name || "Anonymous",
+        username: partner.username ? `@${partner.username}` : "Not provided",
+      };
+    } catch (error) {
+      console.error("Error getting partner info:", error);
+      return null;
     }
   }
 }

@@ -9,7 +9,7 @@
     "PING": "🏓 Pong! Bot is alive and kicking! Ready to connect you with chat partners.",
 
     "CREATE_ROOM": {
-        "SUCCESS_1": "🎉 Chat partner found! Happy chatting! Remember to be respectful and have fun!"
+        "SUCCESS_1": "🎉 Chat partner found! Happy chatting! Remember to be respectful and have fun!\n\nUse the 'ℹ️ Partner Info' button to see information about your chat partner."
     },
 
     "FIND": {

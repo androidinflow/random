@@ -28,7 +28,10 @@ const searchingKeyboard = Markup.keyboard([
   ["🖼️ Image", "🎞️ GIF"],
 ]).resize();
 
-const chattingKeyboard = Markup.keyboard([["🚪 Exit"]]).resize();
+const chattingKeyboard = Markup.keyboard([
+  ["🚪 Exit"],
+  ["ℹ️ Partner Info"],
+]).resize();
 
 const MatchMaker = require("./src/matchmaker");
 let Matchmaker = new MatchMaker(
@@ -134,6 +137,28 @@ bot.hears("🔍 Find Chat", (ctx) => {
 bot.hears("🚪 Exit", (ctx) => {
   const userID = ctx.message.from.id;
   Matchmaker.exit(userID);
+});
+
+bot.hears("ℹ️ Partner Info", async (ctx) => {
+  const userID = ctx.message.from.id;
+  try {
+    const partnerInfo = await Matchmaker.getPartnerInfo(userID);
+
+    if (partnerInfo) {
+      ctx.reply(
+        `Your chat partner:\nName: ${partnerInfo.name}\nUsername: ${partnerInfo.username}`
+      );
+    } else {
+      ctx.reply(
+        "You're not currently in a chat or there was an error fetching partner information."
+      );
+    }
+  } catch (error) {
+    console.error("Error in Partner Info handler:", error);
+    ctx.reply(
+      "Sorry, there was an error fetching partner information. Please try again later."
+    );
+  }
 });
 
 const debounce = (func, delay) => {
