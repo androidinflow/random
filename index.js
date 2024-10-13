@@ -136,18 +136,32 @@ bot.hears("🚪 Exit", (ctx) => {
   Matchmaker.exit(userID);
 });
 
-bot.hears(["🖼️ Image", "🎞️ GIF", "🔒 Image", "🔒 GIF"], async (ctx) => {
+const debounce = (func, delay) => {
+  let timeoutId;
+  return (...args) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = setTimeout(() => {
+      func.apply(null, args);
+    }, delay);
+  };
+};
+
+const handleMediaRequest = async (ctx, isGif) => {
   const userID = ctx.message.from.id;
   if (!(await Matchmaker.canUseMediaCommand(userID))) {
     const referralLink = await Matchmaker.createReferralLink(userID);
     ctx.reply(
-      text.MEDIA_LIMIT.replace("{referralLink}", referralLink),
+      text.MEDIA_LIMIT.replace(
+        "{referralLink}",
+        referralLink || "Error generating link"
+      ),
       lockedMediaKeyboard
     );
     return;
   }
 
-  const isGif = ctx.message.text.includes("GIF");
   try {
     const randomPage = Math.floor(Math.random() * 100) + 1;
     const response = await axios.get(
@@ -194,6 +208,13 @@ bot.hears(["🖼️ Image", "🎞️ GIF", "🔒 Image", "🔒 GIF"], async (ctx
       { reply_markup: mainKeyboard }
     );
   }
+};
+
+const debouncedHandleMediaRequest = debounce(handleMediaRequest, 1000);
+
+bot.hears(["🖼️ Image", "🎞️ GIF", "🔒 Image", "🔒 GIF"], (ctx) => {
+  const isGif = ctx.message.text.includes("GIF");
+  debouncedHandleMediaRequest(ctx, isGif);
 });
 
 bot.command("users", (ctx) => {

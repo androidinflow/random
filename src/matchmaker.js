@@ -480,6 +480,7 @@ class MatchMaker {
           points: 0,
           media_uses: 0,
           referrals: [],
+          referred_by: null,
         });
         console.log(`New user ${userID} created successfully`);
       }
@@ -489,42 +490,63 @@ class MatchMaker {
   }
 
   async createReferralLink(userID) {
-    const user = await this.getUser(userID);
-    if (user) {
-      const referralLink = `https://t.me/soorakhi_bot?start=${user.telegram_id}`;
-      return referralLink;
+    try {
+      const user = await this.getUser(userID);
+      if (user) {
+        return `https://t.me/soorakhi_bot?start=${user.telegram_id}`;
+      }
+    } catch (error) {
+      console.error("Error creating referral link:", error);
     }
-    return null;
+    return `https://t.me/soorakhi_bot?start=${userID}`;
   }
 
   async handleReferral(newUserID, referrerTelegramID) {
     try {
+      if (newUserID.toString() === referrerTelegramID.toString()) {
+        console.log(`User ${newUserID} attempted to refer themselves`);
+        tg.sendMessage(newUserID, "Nice try! You can't refer yourself.");
+        return;
+      }
+
+      const newUser = await this.getUser(newUserID);
       const referrer = await this.getUser(referrerTelegramID);
-      if (referrer) {
-        await pb.collection("telegram_users").update(referrer.id, {
-          points: (referrer.points || 0) + 1,
-          referrals: [...(referrer.referrals || []), newUserID.toString()],
-        });
-        console.log(
-          `Referral successful: ${referrer.telegram_id} referred ${newUserID}`
-        );
 
-        // Notify the referrer
-        tg.sendMessage(
-          referrer.telegram_id,
-          "🎉 Congratulations! You've earned a point for referring a new user!"
-        );
-
-        // Notify the new user
-        tg.sendMessage(
-          newUserID,
-          "Welcome! You've been successfully referred by a friend."
-        );
-      } else {
+      if (!referrer) {
         console.log(`Invalid referral ID: ${referrerTelegramID}`);
         tg.sendMessage(
           newUserID,
           "Sorry, the referral link you used is invalid."
+        );
+        return;
+      }
+
+      if (newUser) {
+        // User already exists in our system
+        console.log(`User ${newUserID} is already in our system`);
+        tg.sendMessage(
+          newUserID,
+          "Welcome back! You're already registered in our system."
+        );
+        tg.sendMessage(
+          referrer.telegram_id,
+          "The user you referred is already registered in our system. No points awarded."
+        );
+      } else {
+        // New user
+        await pb.collection("telegram_users").create({
+          telegram_id: newUserID.toString(),
+          referred_by: referrerTelegramID,
+          points: 0,
+          media_uses: 0,
+          referrals: [],
+        });
+
+        await this.updateReferrerPoints(referrer, newUserID);
+
+        tg.sendMessage(
+          newUserID,
+          "Welcome! You've been successfully referred by a friend."
         );
       }
     } catch (err) {
@@ -536,18 +558,38 @@ class MatchMaker {
     }
   }
 
-  async canUseMediaCommand(userID) {
-    const user = await this.getUser(userID);
-    if (!user) return false;
+  async updateReferrerPoints(referrer, newUserID) {
+    await pb.collection("telegram_users").update(referrer.id, {
+      points: (referrer.points || 0) + 1,
+      referrals: [...(referrer.referrals || []), newUserID.toString()],
+    });
 
-    if (user.referrals && user.referrals.length > 0) return true;
-    if (user.media_uses < 10) {
-      await pb.collection("telegram_users").update(user.id, {
-        media_uses: user.media_uses + 1,
-      });
-      return true;
+    console.log(
+      `Referral successful: ${referrer.telegram_id} referred ${newUserID}`
+    );
+    tg.sendMessage(
+      referrer.telegram_id,
+      "🎉 Congratulations! You've earned a point for referring a new user!"
+    );
+  }
+
+  async canUseMediaCommand(userID) {
+    try {
+      const user = await this.getUser(userID);
+      if (!user) return false;
+
+      if (user.referrals && user.referrals.length > 0) return true;
+      if (user.media_uses < 10) {
+        await pb.collection("telegram_users").update(user.id, {
+          media_uses: (user.media_uses || 0) + 1,
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error in canUseMediaCommand:", error);
+      return false;
     }
-    return false;
   }
 }
 
