@@ -66,11 +66,17 @@ bot.command("help", (ctx) => {
 
 bot.command("image", async (ctx) => {
   try {
-    // Fetch the webpage content
-    const response = await axios.get("https://xgroovy.com/photos/?sort=new");
+    // Generate a random page number between 1 and 100
+    const randomPage = Math.floor(Math.random() * 100) + 1;
+
+    // Fetch the webpage content with the random page number
+    const response = await axios.get(
+      `https://xgroovy.com/photos/${randomPage}/?sort=new`
+    );
     const html = response.data;
 
     // Parse the HTML
+
     const $ = cheerio.load(html);
 
     // Find all image elements
@@ -102,7 +108,13 @@ bot.command("gif", async (ctx) => {
   Matchmaker.saveUser(userID, username, name);
 
   try {
-    const response = await axios.get("https://xgroovy.com/gifs/?sort=new");
+    // Generate a random page number between 1 and 100
+    const randomPage = Math.floor(Math.random() * 100) + 1;
+
+    // Fetch the webpage content with the random page number
+    const response = await axios.get(
+      `https://xgroovy.com/gifs/${randomPage}/?sort=new`
+    );
     const $ = cheerio.load(response.data);
     const gifs = $(".gif-wrap");
 
