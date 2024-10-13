@@ -1,7 +1,7 @@
 {
     "START": "🎭 Welcome to Anonymous Chat! 🎭\n\nThis app allows you to chat anonymously with random people from around the world. It's a great way to meet new friends, practice languages, or just have fun conversations!\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image\n🎞️ /gif - Request a GIF\n\nEnjoy your anonymous chats! 😊",
 
-    "HELP": "📚 Available Commands:\n\n🔍 /find - Find a chat partner\n🛑 /stop - End the conversation\n🚪 /exit - Leave the search queue\n🏓 /ping - Check bot status\n🖼️ /image - Request an image\n🎞️ /gif - Request a GIF\n\n",
+    "HELP": "Here is how you can use the bot:\n\n- 🔍 Find Chat: Start searching for a chat partner.\n- 🛑 Stop: End your current chat.\n- 🚪 Exit: Leave the queue or chat.\n- ❓ Help: Get assistance with using the bot.",
 
     "PING": "🏓 Pong! Bot is alive and kicking! Ready to connect you with chat partners.",
 
@@ -25,13 +25,13 @@
     "STOP": {
         "SUCCESS_1": "👋 You've left the conversation. Thanks for chatting! Hope you had a great time.",
         "SUCCESS_2": "👋 Your partner has ended the conversation. We hope you enjoyed the chat!",
-        "SUCCESS_3": "✅ You've been removed from the queue. Feel free to /find again when you're ready!",
-        "WARNING_1": "⚠️ You're not in a chat or queue.\n\n🔍 Use /find to start searching and meet someone new!"
+        "SUCCESS_3": "✅ You've been removed from the queue. Feel free to use 🛑 Stop again when you're ready!",
+        "WARNING_1": "⚠️ You're not in a chat or queue.\n\n🔍 Use 🔍 Find Chat to start searching and meet someone new!"
     },
 
     "EXIT": {
-        "SUCCESS_1": "✅ Search cancelled. You're no longer in the queue. Ready to try again? Just use /find!",
-        "WARNING_1": "⚠️ You're not in the queue or in a chat. Use /find when you're ready to start!"
+        "SUCCESS_1": "✅ Search cancelled. You're no longer in the queue. Ready to try again? Just use 🚪 Exit!",
+        "WARNING_1": "⚠️ You're not in the queue or in a chat. Use 🚪 Exit when you're ready to start!"
     },
 
     "CONNECT": {
@@ -40,5 +40,15 @@
 
     "ACTIVE_USER": "👥 Current Anonymous Chat Activity:\n\n🌐 Total Users: ${totalUser}\n🕰️ In Queue: ${totalUserInQueue}\n💬 Active Chats: ${totalUserInRoom}\n\nJoin the fun and start chatting now!",
 
-    "ERROR": "❌ Oops! Something went wrong. Please try again later. We're working hard to keep the conversations flowing smoothly!"
+    "ERROR": "❌ Oops! Something went wrong. Please try again later. We're working hard to keep the conversations flowing smoothly!",
+
+    "IMAGE": {
+        "SUCCESS": "Here is your image!",
+        "ERROR": "Sorry, I couldn't find an image to send."
+    },
+
+    "GIF": {
+        "SUCCESS": "Here is your GIF!",
+        "ERROR": "Sorry, I couldn't find a suitable GIF."
+    }
 }

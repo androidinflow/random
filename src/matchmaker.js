@@ -10,10 +10,17 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 class MatchMaker {
-  constructor(initialKeyboard, searchingKeyboard, chattingKeyboard) {
+  constructor(
+    initialKeyboard,
+    searchingKeyboard,
+    chattingKeyboard,
+    mainKeyboard
+  ) {
     this.initialKeyboard = initialKeyboard;
     this.searchingKeyboard = searchingKeyboard;
     this.chattingKeyboard = chattingKeyboard;
+    this.mainKeyboard = mainKeyboard;
+    this.startTimes = new Map(); // To track start times
   }
 
   async init() {
@@ -42,31 +49,8 @@ class MatchMaker {
       });
 
       for (const id of newParticipants) {
-        const partnerId = newParticipants.find((pId) => pId !== id);
-        const partner = await pb
-          .collection("telegram_users")
-          .getFirstListItem(`telegram_id="${partnerId}"`);
-        const partnerName = partner.name || partner.username || "Anonymous";
-        const keyboard = {
-          ...this.chattingKeyboard,
-          reply_markup: {
-            ...this.chattingKeyboard.reply_markup,
-            inline_keyboard: [
-              ...this.chattingKeyboard.reply_markup.inline_keyboard,
-              [
-                {
-                  text: "View Partner's Profile",
-                  callback_data: "view_partner_profile",
-                },
-              ],
-            ],
-          },
-        };
-        tg.sendMessage(
-          id,
-          `${text.CREATE_ROOM.SUCCESS_1}\nYou are connected with ${partnerName}.`,
-          keyboard
-        );
+        const keyboard = Markup.keyboard([["🚪 Exit"]]).resize(); // Only Exit button
+        tg.sendMessage(id, `${text.CREATE_ROOM.SUCCESS_1}`, keyboard);
       }
     } catch (err) {
       console.error("Error creating room:", err);
@@ -125,6 +109,9 @@ class MatchMaker {
       //tg.sendMessage(userID, text.FIND.LOADING);
       await pb.collection("queues").create({ user_id: userID });
       console.log(`User ${userID} added to queue successfully`);
+
+      // Set the start time when the user starts finding a chat
+      this.startTimes.set(userID, Date.now());
     } catch (err) {
       console.error("Error in find method:", err);
       tg.sendMessage(userID, text.ERROR);
@@ -133,6 +120,18 @@ class MatchMaker {
 
   async stop(userID) {
     try {
+      const startTime = this.startTimes.get(userID);
+      const currentTime = Date.now();
+
+      // Check if 5 seconds have passed
+      if (currentTime - startTime < 5000) {
+        tg.sendMessage(
+          userID,
+          "⚠️ You need to wait at least 5 seconds before ending the conversation."
+        );
+        return;
+      }
+
       // First, check if the user is in a room
       let room;
       try {
@@ -158,6 +157,8 @@ class MatchMaker {
             tg.sendMessage(id, text.STOP.SUCCESS_2, this.initialKeyboard);
           }
         });
+        // After successfully stopping the conversation
+        this.startTimes.delete(userID); // Remove the user from the start times
         return;
       }
 
@@ -285,7 +286,7 @@ class MatchMaker {
         if (err.status === 404) {
           // User is not in a room
           await tg.sendMessage(userID, text.CONNECT.WARNING_1, {
-            reply_markup: mainKeyboard.reply_markup,
+            reply_markup: this.mainKeyboard,
           });
           return;
         } else {
@@ -329,13 +330,9 @@ class MatchMaker {
                   "sendMessage"
                 );
               } else {
-                await tg.sendMessage(
-                  partnerID,
-                  `${partnerName}: ${data.text}`,
-                  {
-                    reply_markup: this.chattingKeyboard.reply_markup,
-                  }
-                );
+                await tg.sendMessage(partnerID, data.text, {
+                  reply_markup: this.chattingKeyboard.reply_markup,
+                });
               }
             } catch (err) {
               console.error("Error saving or sending text message:", err);
@@ -464,77 +461,24 @@ class MatchMaker {
 
   async saveUser(userID, username, name) {
     try {
-      let existingUser;
-      try {
-        existingUser = await pb
-          .collection("telegram_users")
-          .getFirstListItem(`telegram_id="${userID}"`);
-      } catch (error) {
-        if (error.status !== 404) {
-          throw error;
-        }
-      }
-
-      const userData = {
-        username: username,
-        name: name || null,
-        last_active: new Date().toISOString(),
-        bio: existingUser ? existingUser.bio : null,
-        age: existingUser ? existingUser.age : null,
-        gender: existingUser ? existingUser.gender : null,
-      };
-
-      if (existingUser) {
-        await pb.collection("telegram_users").update(existingUser.id, userData);
-        console.log(`User ${userID} updated successfully`);
-      } else {
-        await pb.collection("telegram_users").create({
-          telegram_id: userID.toString(),
-          created_at: new Date().toISOString(),
-          ...userData,
-        });
-        console.log(`User ${userID} created successfully`);
-      }
-    } catch (err) {
-      console.error("Error saving user:", err);
-    }
-  }
-
-  async getUserProfile(userID) {
-    try {
-      const user = await pb
+      const existingUser = await pb
         .collection("telegram_users")
         .getFirstListItem(`telegram_id="${userID}"`);
-      return user;
-    } catch (err) {
-      console.error("Error fetching user profile:", err);
-      return null;
-    }
-  }
-
-  async updateUserProfile(userID, updateData) {
-    try {
-      const user = await this.getUserProfile(userID);
-      if (user) {
-        await pb.collection("telegram_users").update(user.id, updateData);
-        console.log(`User ${userID} profile updated successfully`);
+      if (existingUser) {
+        await pb.collection("telegram_users").update(existingUser.id, {
+          username: username,
+          name: name,
+        });
+      } else {
+        await pb.collection("telegram_users").create({
+          telegram_id: userID,
+          username: username,
+          name: name,
+        });
       }
+      console.log(`User ${userID} saved/updated successfully`);
     } catch (err) {
-      console.error("Error updating user profile:", err);
-    }
-  }
-
-  async getUserRoom(userID) {
-    try {
-      const room = await pb
-        .collection("rooms")
-        .getFirstListItem(`participans~"${userID}"`);
-      return room;
-    } catch (err) {
-      if (err.status !== 404) {
-        console.error("Error fetching user room:", err);
-      }
-      return null;
+      console.error("Error saving user:", err);
     }
   }
 }
