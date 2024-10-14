@@ -70,7 +70,6 @@ bot.start(async (ctx) => {
     ctx.reply(text.START, mainKeyboard);
   }
 });
-
 bot.command("gif", async (ctx) => {
   const userID = ctx.message.from.id;
   const username = ctx.message.from.username || "Anonymous";
@@ -145,12 +144,30 @@ bot.hears("ℹ️ اطلاعات شریک", async (ctx) => {
     const partnerInfo = await Matchmaker.getPartnerInfo(userID);
 
     if (partnerInfo) {
-      ctx.reply(
-        `اطلاعات شریک چت شما:\nنام: ${partnerInfo.name}\nنام کاربری: ${partnerInfo.username}`
-      );
+      const starEmoji = "⭐️";
+      const personEmoji = "👤";
+      const usernameEmoji = "🔖";
+
+      const formattedMessage = `
+${starEmoji} اطلاعات شریک چت شما ${starEmoji}
+━━━━━━━━━━━━━━━━━━━━━
+${personEmoji} نام: <b>${partnerInfo.name}</b>
+${usernameEmoji} نام کاربری: <i>${partnerInfo.username}</i>
+━━━━━━━━━━━━━━━━━━━━━
+امیدواریم گفتگوی خوبی داشته باشید! 🌟
+      `;
+
+      ctx.replyWithHTML(formattedMessage, { parse_mode: "HTML" });
     } else {
+      const sadEmoji = "😔";
+      const errorEmoji = "❌";
+
       ctx.reply(
-        "شما در حال حاضر در چتی نیستید یا خطایی در دریافت اطلاعات شریک رخ داده است."
+        `${sadEmoji} اوه، متأسفیم! ${errorEmoji}
+        
+شما در حال حاضر در چتی نیستید یا مشکلی در دریافت اطلاعات شریک پیش آمده است.
+
+لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.`
       );
     }
   } catch (error) {
@@ -175,7 +192,14 @@ const debounce = (func, delay) => {
 
 const handleMediaRequest = async (ctx, isGif) => {
   const userID = ctx.message.from.id;
-  if (!(await Matchmaker.canUseMediaCommand(userID))) {
+  console.log(`Media request from user ${userID}`);
+
+  const canUse = await Matchmaker.canUseMediaCommand(userID);
+  console.log(
+    `User ${userID} media command usage: ${canUse ? "allowed" : "denied"}`
+  );
+
+  if (!canUse) {
     const referralLink = await Matchmaker.createReferralLink(userID);
     ctx.reply(
       text.MEDIA_LIMIT.replace(

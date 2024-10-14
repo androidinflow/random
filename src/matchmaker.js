@@ -18,7 +18,7 @@ class MatchMaker {
   }
 
   async init() {
-    setInterval(async () => {
+    const fetchQueues = async () => {
       try {
         const queues = await pb.collection("queues").getList(1, 2, {
           sort: "created",
@@ -31,9 +31,13 @@ class MatchMaker {
           await this.createRoom(newParticipants);
         }
       } catch (err) {
-        console.error("Error in init:", err);
+        if (!err.isAbort) {
+          console.error("Error in init:", err);
+        }
       }
-    }, 2000);
+    };
+
+    setInterval(fetchQueues, 2000);
   }
 
   async createRoom(newParticipants) {
@@ -449,16 +453,17 @@ class MatchMaker {
 
   async getUser(userID) {
     try {
-      return await pb
+      const user = await pb
         .collection("telegram_users")
         .getFirstListItem(`telegram_id="${userID}"`);
+      return user;
     } catch (err) {
       if (err.status === 404) {
         // User not found, which is expected for new users
         return null;
       }
       console.error(`Error getting user ${userID}:`, err);
-      return null;
+      throw err; // Rethrow the error to be handled by the caller
     }
   }
 
@@ -511,7 +516,7 @@ class MatchMaker {
         return;
       }
 
-      const newUser = await this.getUser(newUserID);
+      let newUser = await this.getUser(newUserID);
       const referrer = await this.getUser(referrerTelegramID);
 
       if (!referrer) {
@@ -523,20 +528,9 @@ class MatchMaker {
         return;
       }
 
-      if (newUser) {
-        // User already exists in our system
-        console.log(`User ${newUserID} is already in our system`);
-        tg.sendMessage(
-          newUserID,
-          "خوش آمدید! شما قبلاً در سیستم ما ثبت نام کرده‌اید."
-        );
-        tg.sendMessage(
-          referrer.telegram_id,
-          "کاربری که معرفی کردید قبلاً در سیستم ما ثبت نام کرده است. امتیازی داده نمی‌شود."
-        );
-      } else {
+      if (!newUser) {
         // New user
-        await pb.collection("telegram_users").create({
+        newUser = await pb.collection("telegram_users").create({
           telegram_id: newUserID.toString(),
           referred_by: referrerTelegramID,
           points: 0,
@@ -546,16 +540,34 @@ class MatchMaker {
 
         await this.updateReferrerPoints(referrer, newUserID);
 
+        console.log(
+          `New user ${newUserID} created and referred by ${referrerTelegramID}`
+        );
         tg.sendMessage(
           newUserID,
           "خوش آمدید! شما با موفقیت توسط یک دوست معرفی شده‌اید."
+        );
+        tg.sendMessage(
+          referrerTelegramID,
+          "تبریک! شما برای معرفی یک کاربر جدید امتیاز دریافت کردید."
+        );
+      } else {
+        // User already exists
+        console.log(`User ${newUserID} already exists in the system`);
+        tg.sendMessage(
+          newUserID,
+          "شما قبلاً در سیستم ما ثبت نام کرده‌اید. امکان استفاده از لینک دعوت برای شما وجود ندارد."
+        );
+        tg.sendMessage(
+          referrerTelegramID,
+          "کاربری که معرفی کردید قبلاً در سیستم ما ثبت نام کرده است. امتیازی داده نمی‌شود."
         );
       }
     } catch (err) {
       console.error("Error handling referral:", err);
       tg.sendMessage(
         newUserID,
-        "خطایی در پردازش معرفی شما رخ داد. لطفاً بعداً دوباره تلاش کنید."
+        "متأسفیم، خطایی در پردازش معرفی شما رخ داد. لطفاً بعداً دوباره تلاش کنید."
       );
     }
   }
