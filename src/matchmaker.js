@@ -46,8 +46,8 @@ class MatchMaker {
 
       for (const id of newParticipants) {
         const keyboard = Markup.keyboard([
-          ["🚪 Exit"],
-          ["ℹ️ Partner Info"],
+          ["🚪 خروج"],
+          ["ℹ️ اطلاعات شریک"],
         ]).resize(); // Only Exit button
         tg.sendMessage(id, `${text.CREATE_ROOM.SUCCESS_1}`, keyboard);
       }
@@ -112,7 +112,7 @@ class MatchMaker {
       if (currentTime - startTime < 5000) {
         tg.sendMessage(
           userID,
-          "⚠️ You need to wait at least 5 seconds before ending the conversation."
+          "⚠️ شما باید حداقل 5 ثانیه صبر کنید قبل از پایان دادن به مکالمه."
         );
         return;
       }
@@ -287,7 +287,7 @@ class MatchMaker {
         const partner = await pb
           .collection("telegram_users")
           .getFirstListItem(`telegram_id="${partnerID}"`);
-        const partnerName = partner.name || partner.username || "Anonymous";
+        const partnerName = partner.name || partner.username || "ناشناس";
 
         const saveMessage = async (messageData) => {
           await pb.collection("messages").create(messageData);
@@ -504,7 +504,10 @@ class MatchMaker {
     try {
       if (newUserID.toString() === referrerTelegramID.toString()) {
         console.log(`User ${newUserID} attempted to refer themselves`);
-        tg.sendMessage(newUserID, "Nice try! You can't refer yourself.");
+        tg.sendMessage(
+          newUserID,
+          "خوب تلاش کردی! نمی‌توانی خودت را معرفی کنی."
+        );
         return;
       }
 
@@ -515,7 +518,7 @@ class MatchMaker {
         console.log(`Invalid referral ID: ${referrerTelegramID}`);
         tg.sendMessage(
           newUserID,
-          "Sorry, the referral link you used is invalid."
+          "متأسفیم، لینک معرفی که استفاده کردید نامعتبر است."
         );
         return;
       }
@@ -525,11 +528,11 @@ class MatchMaker {
         console.log(`User ${newUserID} is already in our system`);
         tg.sendMessage(
           newUserID,
-          "Welcome back! You're already registered in our system."
+          "خوش آمدید! شما قبلاً در سیستم ما ثبت نام کرده‌اید."
         );
         tg.sendMessage(
           referrer.telegram_id,
-          "The user you referred is already registered in our system. No points awarded."
+          "کاربری که معرفی کردید قبلاً در سیستم ما ثبت نام کرده است. امتیازی داده نمی‌شود."
         );
       } else {
         // New user
@@ -545,14 +548,14 @@ class MatchMaker {
 
         tg.sendMessage(
           newUserID,
-          "Welcome! You've been successfully referred by a friend."
+          "خوش آمدید! شما با موفقیت توسط یک دوست معرفی شده‌اید."
         );
       }
     } catch (err) {
       console.error("Error handling referral:", err);
       tg.sendMessage(
         newUserID,
-        "There was an error processing your referral. Please try again later."
+        "خطایی در پردازش معرفی شما رخ داد. لطفاً بعداً دوباره تلاش کنید."
       );
     }
   }
@@ -568,7 +571,7 @@ class MatchMaker {
     );
     tg.sendMessage(
       referrer.telegram_id,
-      "🎉 Congratulations! You've earned a point for referring a new user!"
+      "🎉 تبریک! شما برای معرفی یک کاربر جدید یک امتیاز کسب کردید!"
     );
   }
 
@@ -619,8 +622,8 @@ class MatchMaker {
       if (!partner) return null;
 
       return {
-        name: partner.name || "Anonymous",
-        username: partner.username ? `@${partner.username}` : "Not provided",
+        name: partner.name || "ناشناس",
+        username: partner.username ? `@${partner.username}` : "ارائه نشده",
       };
     } catch (error) {
       console.error("Error getting partner info:", error);

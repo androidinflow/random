@@ -14,23 +14,23 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 const { Markup } = require("telegraf");
 
 const mainKeyboard = Markup.keyboard([
-  ["🔍 Find Chat"],
-  ["🖼️ Image", "🎞️ GIF"],
+  ["🔍 یافتن چت"],
+  ["🖼️ تصویر", "🎞️ گیف"],
 ]).resize();
 
 const lockedMediaKeyboard = Markup.keyboard([
-  ["🔍 Find Chat"],
-  ["🔒 Image", "🔒 GIF"],
+  ["🔍 یافتن چت"],
+  ["🔒 تصویر", "🔒 گیف"],
 ]).resize();
 
 const searchingKeyboard = Markup.keyboard([
-  ["🚪 Exit"],
-  ["🖼️ Image", "🎞️ GIF"],
+  ["🚪 خروج"],
+  ["🖼️ تصویر", "🎞️ گیف"],
 ]).resize();
 
 const chattingKeyboard = Markup.keyboard([
-  ["🚪 Exit"],
-  ["ℹ️ Partner Info"],
+  ["🚪 خروج"],
+  ["ℹ️ اطلاعات شریک"],
 ]).resize();
 
 const MatchMaker = require("./src/matchmaker");
@@ -63,7 +63,7 @@ bot.start(async (ctx) => {
   if (referralLink) {
     ctx.reply(
       text.START +
-        `\n\nShare this link to invite friends and earn points: ${referralLink}`,
+        `\n\nاین لینک را به اشتراک بگذارید تا دوستان خود را دعوت کنید و امتیاز کسب کنید: ${referralLink}`,
       mainKeyboard
     );
   } else {
@@ -95,20 +95,20 @@ bot.command("gif", async (ctx) => {
         );
       } else {
         await ctx.reply(
-          "Sorry, I couldn't find a suitable GIF. Please try again.",
+          "متأسفم، نتوانستم گیف مناسبی پیدا کنم. لطفاً دوباره تلاش کنید.",
           { reply_markup: mainKeyboard.reply_markup }
         );
       }
     } else {
       await ctx.reply(
-        "Sorry, I couldn't find any GIFs. Please try again later.",
+        "متأسفم، نتوانستم هیچ گیفی پیدا کنم. لطفاً بعداً دوباره تلاش کنید.",
         { reply_markup: mainKeyboard.reply_markup }
       );
     }
   } catch (error) {
     console.error("Error fetching GIF:", error);
     await ctx.reply(
-      "Sorry, there was an error fetching the GIF. Please try again later.",
+      "متأسفم، خطایی در دریافت گیف رخ داد. لطفاً بعداً دوباره تلاش کنید.",
       { reply_markup: mainKeyboard.reply_markup }
     );
   }
@@ -122,10 +122,10 @@ bot.command("ping", (ctx) => {
   Matchmaker.saveUser(userID, username, name);
   const start = new Date();
   const s = start / 1000 - ctx.message.date;
-  ctx.replyWithHTML(`${text.PING} - <code>⏱ ${s.toFixed(3)} s</code>`);
+  ctx.replyWithHTML(`${text.PING} - <code>⏱ ${s.toFixed(3)} ثانیه</code>`);
 });
 
-bot.hears("🔍 Find Chat", (ctx) => {
+bot.hears("🔍 یافتن چت", (ctx) => {
   const userID = ctx.message.from.id;
   const username = ctx.message.from.username || "Anonymous";
   const name = ctx.message.from.first_name || "Anonymous";
@@ -134,29 +134,29 @@ bot.hears("🔍 Find Chat", (ctx) => {
   Matchmaker.find(userID);
 });
 
-bot.hears("🚪 Exit", (ctx) => {
+bot.hears("🚪 خروج", (ctx) => {
   const userID = ctx.message.from.id;
   Matchmaker.exit(userID);
 });
 
-bot.hears("ℹ️ Partner Info", async (ctx) => {
+bot.hears("ℹ️ اطلاعات شریک", async (ctx) => {
   const userID = ctx.message.from.id;
   try {
     const partnerInfo = await Matchmaker.getPartnerInfo(userID);
 
     if (partnerInfo) {
       ctx.reply(
-        `Your chat partner:\nName: ${partnerInfo.name}\nUsername: ${partnerInfo.username}`
+        `اطلاعات شریک چت شما:\nنام: ${partnerInfo.name}\nنام کاربری: ${partnerInfo.username}`
       );
     } else {
       ctx.reply(
-        "You're not currently in a chat or there was an error fetching partner information."
+        "شما در حال حاضر در چتی نیستید یا خطایی در دریافت اطلاعات شریک رخ داده است."
       );
     }
   } catch (error) {
     console.error("Error in Partner Info handler:", error);
     ctx.reply(
-      "Sorry, there was an error fetching partner information. Please try again later."
+      "متأسفم، خطایی در دریافت اطلاعات شریک رخ داد. لطفاً بعداً دوباره تلاش کنید."
     );
   }
 });
@@ -210,26 +210,26 @@ const handleMediaRequest = async (ctx, isGif) => {
         }
       } else {
         await ctx.reply(
-          `Sorry, I couldn't find a suitable ${
-            isGif ? "GIF" : "image"
-          }. Please try again.`,
+          `متأسفم، نتوانستم ${
+            isGif ? "گیف" : "تصویر"
+          } مناسبی پیدا کنم. لطفاً دوباره تلاش کنید.`,
           { reply_markup: mainKeyboard }
         );
       }
     } else {
       await ctx.reply(
-        `Sorry, I couldn't find any ${
-          isGif ? "GIFs" : "images"
-        }. Please try again later.`,
+        `متأسفم، نتوانستم هیچ ${
+          isGif ? "گیفی" : "تصویری"
+        } پیدا کنم. لطفاً بعداً دوباره تلاش کنید.`,
         { reply_markup: mainKeyboard }
       );
     }
   } catch (error) {
     console.error(`Error fetching ${isGif ? "GIF" : "image"}:`, error);
     await ctx.reply(
-      `Sorry, there was an error fetching the ${
-        isGif ? "GIF" : "image"
-      }. Please try again later.`,
+      `متأسفم، خطایی در دریافت ${
+        isGif ? "گیف" : "تصویر"
+      } رخ داد. لطفاً بعداً دوباره تلاش کنید.`,
       { reply_markup: mainKeyboard }
     );
   }
@@ -237,8 +237,8 @@ const handleMediaRequest = async (ctx, isGif) => {
 
 const debouncedHandleMediaRequest = debounce(handleMediaRequest, 1000);
 
-bot.hears(["🖼️ Image", "🎞️ GIF", "🔒 Image", "🔒 GIF"], (ctx) => {
-  const isGif = ctx.message.text.includes("GIF");
+bot.hears(["🖼️ تصویر", "🎞️ گیف", "🔒 تصویر", "🔒 گیف"], (ctx) => {
+  const isGif = ctx.message.text.includes("گیف");
   debouncedHandleMediaRequest(ctx, isGif);
 });
 
@@ -332,6 +332,6 @@ app.listen(port, () => {
 
 // Add this near the top of your file, where you define other keyboards
 const mediaKeyboard = Markup.keyboard([
-  ["🖼️ Another Image", "🎞️ Another GIF"],
-  ["🔍 Find Chat", "🚪 Exit"],
+  ["🖼️ تصویر دیگر", "🎞️ گیف دیگر"],
+  ["🔍 یافتن چت", "🚪 خروج"],
 ]).resize();
