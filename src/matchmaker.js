@@ -316,7 +316,7 @@ class MatchMaker {
                 );
               } else {
                 await tg.sendMessage(partnerID, data.text, {
-                  reply_markup: this.chattingKeyboard.reply_markup,
+                  reply_markup: this.chattingKeyboard,
                 });
               }
             } catch (err) {
