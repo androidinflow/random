@@ -3,7 +3,7 @@ const tg = new Telegram(process.env.BOT_TOKEN);
 
 const { Markup } = require("telegraf");
 
-const text = require("./config/lang/EN.json");
+const text = require("./config/lang/text.json");
 
 const pb = require("./config/pocketbase");
 const fetch = (...args) =>
@@ -14,7 +14,11 @@ class MatchMaker {
     this.initialKeyboard = initialKeyboard;
     this.searchingKeyboard = searchingKeyboard;
     this.mainKeyboard = mainKeyboard;
-    this.startTimes = new Map(); // To track start times
+    this.intervalId = null; // To store the interval ID
+    this.chattingKeyboard = Markup.keyboard([
+      ["🚪 خروج"],
+      ["ℹ️ اطلاعات شریک"],
+    ]).resize();
   }
 
   async init() {
@@ -37,7 +41,11 @@ class MatchMaker {
       }
     };
 
-    setInterval(fetchQueues, 2000);
+    // Clear any existing interval before setting a new one
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
+    this.intervalId = setInterval(fetchQueues, 2000);
   }
 
   async createRoom(newParticipants) {
@@ -45,8 +53,6 @@ class MatchMaker {
       const room = await pb.collection("rooms").create({
         participans: newParticipants,
       });
-
-      //real one
 
       for (const id of newParticipants) {
         const keyboard = Markup.keyboard([
@@ -60,7 +66,19 @@ class MatchMaker {
     }
   }
 
-  async find(userID) {
+  async updateUser(userID, newValue) {
+    const data = {
+      media_uses: newValue,
+    };
+
+    try {
+      await pb.collection("telegram_users").update(userID, data);
+    } catch (err) {
+      console.error("Error updating user:", err);
+    }
+  }
+
+  async findMatch(userID) {
     try {
       // Check if the user is already in a queue
       let existingQueue;
@@ -107,20 +125,8 @@ class MatchMaker {
     }
   }
 
-  async stop(userID) {
+  async stopSearching(userID) {
     try {
-      const startTime = this.startTimes.get(userID);
-      const currentTime = Date.now();
-
-      // Check if 5 seconds have passed
-      if (currentTime - startTime < 5000) {
-        tg.sendMessage(
-          userID,
-          "⚠️ شما باید حداقل 5 ثانیه صبر کنید قبل از پایان دادن به مکالمه."
-        );
-        return;
-      }
-
       // First, check if the user is in a room
       let room;
       try {
@@ -146,8 +152,6 @@ class MatchMaker {
             tg.sendMessage(id, text.STOP.SUCCESS_2, this.initialKeyboard);
           }
         });
-        // After successfully stopping the conversation
-        this.startTimes.delete(userID); // Remove the user from the start times
         return;
       }
 
@@ -181,7 +185,7 @@ class MatchMaker {
     }
   }
 
-  async exit(userID) {
+  async exitRoom(userID) {
     try {
       // First, check if the user is in a queue
       let queue;
@@ -242,144 +246,36 @@ class MatchMaker {
   }
 
   async connect(userID, [type, data]) {
-    //console.log(`Message received - Type: ${type}, User ID: ${userID}`);
-    //console.log("Message data:", data);
-
     try {
-      // Check if user is in a queue
-      let queue;
-      try {
-        queue = await pb
-          .collection("queues")
-          .getFirstListItem(`user_id="${userID}"`);
-      } catch (err) {
-        if (err.status !== 404) {
-          throw err;
-        }
-      }
-
+      const queue = await this.getQueueForUser(userID);
       if (queue) {
         await tg.sendMessage(userID, text.FIND.LOADING, {
-          reply_markup: searchingKeyboard.reply_markup,
+          reply_markup: this.searchingKeyboard.reply_markup,
         });
         return;
       }
 
-      // Check if user is in a room
-      let room;
-      try {
-        room = await pb
-          .collection("rooms")
-          .getFirstListItem(`participans~"${userID}"`);
-      } catch (err) {
-        if (err.status === 404) {
-          // User is not in a room
-          await tg.sendMessage(userID, text.CONNECT.WARNING_1, {
-            reply_markup: this.mainKeyboard,
-          });
-          return;
-        } else {
-          throw err;
-        }
+      const room = await this.getRoomForUser(userID);
+      if (!room) {
+        await tg.sendMessage(userID, text.CONNECT.WARNING_1, {
+          reply_markup: this.mainKeyboard,
+        });
+        return;
       }
 
-      if (room) {
-        const participans = room.participans;
-        const index = participans.indexOf(userID);
-        const partnerID = participans[index === 1 ? 0 : 1];
+      const partnerID = this.getPartnerIDFromRoom(room, userID);
+      const partner = await this.getUser(partnerID);
+      const partnerName = partner?.name || partner?.username || "ناشناس";
 
-        const partner = await pb
-          .collection("telegram_users")
-          .getFirstListItem(`telegram_id="${partnerID}"`);
-        const partnerName = partner.name || partner.username || "ناشناس";
-
-        const saveMessage = async (messageData) => {
-          await pb.collection("messages").create(messageData);
-        };
-
-        switch (type) {
-          case "text":
-            const messageData = {
-              sender_id: userID.toString(),
-              receiver_id: partnerID.toString(),
-              type: "text",
-              content: data.text,
-            };
-
-            try {
-              await pb.collection("messages").create(messageData);
-              console.log("Text message saved to PocketBase successfully");
-
-              if (data.reply_to_message) {
-                await this.#sendReply(
-                  partnerID,
-                  userID,
-                  data.text,
-                  data,
-                  "sendMessage"
-                );
-              } else {
-                await tg.sendMessage(partnerID, data.text, {
-                  reply_markup: this.chattingKeyboard,
-                });
-              }
-            } catch (err) {
-              console.error("Error saving or sending text message:", err);
-            }
-            break;
-          case "file":
-            try {
-              if (data.mime_type === "image/webp") {
-                // This is a sticker, don't save it to PocketBase
-                await tg.sendSticker(partnerID, data.file_id);
-                console.log("Sticker sent to partner successfully");
-              } else {
-                const fileLink = await tg.getFileLink(data.file_id);
-                console.log(`File link: ${fileLink}`);
-                const file = await uploadFileToPocketBase(
-                  fileLink,
-                  data.file_name,
-                  data.mime_type
-                );
-
-                const formData = {
-                  sender_id: userID.toString(),
-                  receiver_id: partnerID.toString(),
-                  type: data.file_id.startsWith("AgAC") ? "photo" : "file",
-                  file_id: data.file_id,
-                  file_unique_id: data.file_unique_id,
-                  content: fileLink,
-                  file_name: data.file_name,
-                  mime_type: data.mime_type,
-                  caption: data.caption || "",
-                  files: [file],
-                };
-
-                await pb.collection("messages").create(formData);
-                console.log("File saved to PocketBase successfully");
-
-                if (data.file_id.startsWith("AgAC")) {
-                  // This is a compressed image (photo)
-                  await tg.sendPhoto(partnerID, data.file_id, {
-                    caption: data.caption || "",
-                  });
-                } else {
-                  // This is an uncompressed image or other file type (document)
-                  await tg.sendDocument(partnerID, data.file_id, {
-                    caption: data.caption || "",
-                  });
-                }
-                console.log("File sent to partner successfully");
-              }
-            } catch (err) {
-              console.error("Error processing file:", err);
-              this.#errorWhenRoomActive(err, userID);
-            }
-            break;
-          default:
-            console.log(`Unsupported message type: ${type}`);
-            break;
-        }
+      switch (type) {
+        case "text":
+          await this.handleTextMessage(userID, partnerID, data);
+          break;
+        case "file":
+          await this.handleFileMessage(userID, partnerID, data);
+          break;
+        default:
+          console.log(`Unsupported message type: ${type}`);
       }
     } catch (err) {
       console.error("Error in connect method:", err);
@@ -389,21 +285,115 @@ class MatchMaker {
     }
   }
 
-  async currentActiveUser(userID) {
+  async getQueueForUser(userID) {
     try {
-      const totalUserInRoom =
-        (await pb.collection("rooms").getFullList()).length * 2;
-      const totalUserInQueue = (await pb.collection("queues").getFullList())
-        .length;
-      const totalUser = totalUserInRoom + totalUserInQueue;
-      let textActiveUser = text.ACTIVE_USER.replace("${totalUser}", totalUser)
-        .replace("${totalUserInQueue}", totalUserInQueue)
-        .replace("${totalUserInRoom}", totalUserInRoom);
-
-      tg.sendMessage(userID, textActiveUser);
+      return await pb
+        .collection("queues")
+        .getFirstListItem(`user_id="${userID}"`);
     } catch (err) {
-      console.error("Error in currentActiveUser:", err);
+      if (err.status !== 404) throw err;
+      return null;
     }
+  }
+
+  async getRoomForUser(userID) {
+    try {
+      return await pb
+        .collection("rooms")
+        .getFirstListItem(`participans~"${userID}"`);
+    } catch (err) {
+      if (err.status !== 404) throw err;
+      return null;
+    }
+  }
+
+  getPartnerIDFromRoom(room, userID) {
+    return room.participans.find((id) => id !== userID);
+  }
+
+  async handleTextMessage(senderID, receiverID, data) {
+    const messageData = {
+      sender_id: senderID.toString(),
+      receiver_id: receiverID.toString(),
+      type: "text",
+      content: data.text,
+    };
+
+    try {
+      await pb.collection("messages").create(messageData);
+      console.log("Text message saved to PocketBase successfully");
+
+      if (data.reply_to_message) {
+        await this.#sendReply(
+          receiverID,
+          senderID,
+          data.text,
+          data,
+          "sendMessage"
+        );
+      } else {
+        await tg.sendMessage(receiverID, data.text, {
+          reply_markup: this.chattingKeyboard,
+        });
+      }
+    } catch (err) {
+      console.error("Error saving or sending text message:", err);
+    }
+  }
+
+  async handleFileMessage(senderID, receiverID, data) {
+    try {
+      if (data.mime_type === "image/webp") {
+        await this.handleStickerMessage(receiverID, data);
+      } else {
+        await this.handleRegularFileMessage(senderID, receiverID, data);
+      }
+    } catch (err) {
+      console.error("Error processing file:", err);
+      this.#errorWhenRoomActive(err, senderID);
+    }
+  }
+
+  async handleStickerMessage(receiverID, data) {
+    await tg.sendSticker(receiverID, data.file_id);
+    console.log("Sticker sent to partner successfully");
+  }
+
+  async handleRegularFileMessage(senderID, receiverID, data) {
+    const fileLink = await tg.getFileLink(data.file_id);
+    console.log(`File link: ${fileLink}`);
+    const file = await uploadFileToPocketBase(
+      fileLink,
+      data.file_name,
+      data.mime_type
+    );
+
+    const formData = {
+      sender_id: senderID.toString(),
+      receiver_id: receiverID.toString(),
+      type: data.file_id.startsWith("AgAC") ? "photo" : "file",
+      file_id: data.file_id,
+      file_unique_id: data.file_unique_id,
+      content: fileLink,
+      file_name: data.file_name,
+      mime_type: data.mime_type,
+      caption: data.caption || "",
+      files: [file],
+    };
+
+    await pb.collection("messages").create(formData);
+    console.log("File saved to PocketBase successfully");
+
+    if (data.file_id.startsWith("AgAC")) {
+      await tg.sendPhoto(receiverID, data.file_id, {
+        caption: data.caption || "",
+      });
+    } else {
+      await tg.sendDocument(receiverID, data.file_id, {
+        caption: data.caption || "",
+      });
+    }
+    console.log("File sent to partner successfully");
   }
 
   #forceStop(userID) {
@@ -460,6 +450,7 @@ class MatchMaker {
     } catch (err) {
       if (err.status === 404) {
         // User not found, which is expected for new users
+        console.log("(from getUser function )user dont exist in database");
         return null;
       }
       console.error(`Error getting user ${userID}:`, err);
@@ -471,12 +462,14 @@ class MatchMaker {
     try {
       const existingUser = await this.getUser(userID);
       if (existingUser) {
+        console.log(`User ${userID} already exists in database just updating`);
         await pb.collection("telegram_users").update(existingUser.id, {
           username: username,
           name: name,
         });
         console.log(`User ${userID} updated successfully`);
       } else {
+        console.log(`User ${userID} dont exist in database just creating`);
         await pb.collection("telegram_users").create({
           telegram_id: userID.toString(),
           username: username,
@@ -490,119 +483,6 @@ class MatchMaker {
       }
     } catch (err) {
       console.error("Error saving user:", err);
-    }
-  }
-
-  async createReferralLink(userID) {
-    try {
-      const user = await this.getUser(userID);
-      if (user) {
-        return `https://t.me/soorakhi_bot?start=${user.telegram_id}`;
-      }
-    } catch (error) {
-      console.error("Error creating referral link:", error);
-    }
-    return `https://t.me/soorakhi_bot?start=${userID}`;
-  }
-
-  async handleReferral(newUserID, referrerTelegramID) {
-    try {
-      if (newUserID.toString() === referrerTelegramID.toString()) {
-        console.log(`User ${newUserID} attempted to refer themselves`);
-        tg.sendMessage(
-          newUserID,
-          "خوب تلاش کردی! نمی‌توانی خودت را معرفی کنی."
-        );
-        return;
-      }
-
-      let newUser = await this.getUser(newUserID);
-      const referrer = await this.getUser(referrerTelegramID);
-
-      if (!referrer) {
-        console.log(`Invalid referral ID: ${referrerTelegramID}`);
-        tg.sendMessage(
-          newUserID,
-          "متأسفیم، لینک معرفی که استفاده کردید نامعتبر است."
-        );
-        return;
-      }
-
-      if (!newUser) {
-        // New user
-        newUser = await pb.collection("telegram_users").create({
-          telegram_id: newUserID.toString(),
-          referred_by: referrerTelegramID,
-          points: 0,
-          media_uses: 0,
-          referrals: [],
-        });
-
-        await this.updateReferrerPoints(referrer, newUserID);
-
-        console.log(
-          `New user ${newUserID} created and referred by ${referrerTelegramID}`
-        );
-        tg.sendMessage(
-          newUserID,
-          "خوش آمدید! شما با موفقیت توسط یک دوست معرفی شده‌اید."
-        );
-        tg.sendMessage(
-          referrerTelegramID,
-          "تبریک! شما برای معرفی یک کاربر جدید امتیاز دریافت کردید."
-        );
-      } else {
-        // User already exists
-        console.log(`User ${newUserID} already exists in the system`);
-        tg.sendMessage(
-          newUserID,
-          "شما قبلاً در سیستم ما ثبت نام کرده‌اید. امکان استفاده از لینک دعوت برای شما وجود ندارد."
-        );
-        tg.sendMessage(
-          referrerTelegramID,
-          "کاربری که معرفی کردید قبلاً در سیستم ما ثبت نام کرده است. امتیازی داده نمی‌شود."
-        );
-      }
-    } catch (err) {
-      console.error("Error handling referral:", err);
-      tg.sendMessage(
-        newUserID,
-        "متأسفیم، خطایی در پردازش معرفی شما رخ داد. لطفاً بعداً دوباره تلاش کنید."
-      );
-    }
-  }
-
-  async updateReferrerPoints(referrer, newUserID) {
-    await pb.collection("telegram_users").update(referrer.id, {
-      points: (referrer.points || 0) + 1,
-      referrals: [...(referrer.referrals || []), newUserID.toString()],
-    });
-
-    console.log(
-      `Referral successful: ${referrer.telegram_id} referred ${newUserID}`
-    );
-    tg.sendMessage(
-      referrer.telegram_id,
-      "🎉 تبریک! شما برای معرفی یک کاربر جدید یک امتیاز کسب کردید!"
-    );
-  }
-
-  async canUseMediaCommand(userID) {
-    try {
-      const user = await this.getUser(userID);
-      if (!user) return false;
-
-      if (user.referrals && user.referrals.length > 0) return true;
-      if (user.media_uses < 10) {
-        await pb.collection("telegram_users").update(user.id, {
-          media_uses: (user.media_uses || 0) + 1,
-        });
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Error in canUseMediaCommand:", error);
-      return false;
     }
   }
 
