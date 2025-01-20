@@ -3,6 +3,7 @@ require("dotenv").config();
 console.log(`Node.js version: ${process.version}`);
 
 const text = require("./src/config/lang/text.json");
+const pb = require("./src/config/pocketbase");
 
 const express = require("express");
 const app = express();
@@ -35,44 +36,82 @@ let chatManager = new ChatManager(
 
 chatManager.init();
 
-bot.start(async (ctx) => {
-  const userId = ctx.message.from.id;
-  const username = ctx.message.from.username || "Anonymous";
-  const name = ctx.message.from.first_name || "Anonymous";
-  console.log(userId, username, name);
-
-  await chatManager.saveUser(userId, username, name);
+const handleUserStart = async (ctx) => {
+  const { id, username = "Anonymous", first_name: name } = ctx.message.from;
+  console.log(id, username, name);
+  ctx.reply(text.START, chatManager.initialKeyboard);
 
   const referralCode = ctx.startPayload;
   if (referralCode) {
-    await chatManager.handleReferral(userId, referralCode);
-  }
-
-  // Send a welcome message
-  ctx.reply(text.START, chatManager.initialKeyboard);
-});
-
-bot.hears("🍆گیف👾", async (ctx) => {
-  const userId = ctx.message.from.id;
-  const username = ctx.message.from.username || "Anonymous";
-  const name = ctx.message.from.first_name || "Anonymous";
-  console.log(userId, username, name);
-  await chatManager.saveUser(userId, username, name);
-
-  console.log(`Media request from user ${userId}`);
-
-  try {
-    const user = await chatManager.getUser(userId);
-
-    if (user.media_uses >= 15) {
-      await ctx.reply(
-        "متأسفم، شما بیش از حد استفاده کرده اید. لطفاً بعداً دوباره تلاش کنید.",
-        { reply_markup: homeKeyboard.reply_markup }
-      );
+    console.log("referralCode", referralCode);
+    const [referrerId, referrerTid] = referralCode.split("-");
+    if (referrerId === id.toString()) {
+      await ctx.reply("شما نمیتوانید خودتان را به عنوان شریک ثبت کنید.", {
+        reply_markup: homeKeyboard.reply_markup,
+      });
       return;
     }
 
-    const page = Math.floor(Math.random() * 2000) + 1; // Random page between 1 and 100
+    try {
+      const existingUser = await chatManager.getUser(id);
+      if (!existingUser) {
+        console.log(
+          `User ${id} doesn't exist in database. Giving points to the user`
+        );
+
+        // Save the new user first
+        await chatManager.saveUser(id, username, name);
+
+        // Now update the referrer's information
+        const referrer = await pb
+          .collection("telegram_users")
+          .getOne(referrerTid);
+        const updatedReferrals = [...(referrer.referrals || []), id];
+        await pb.collection("telegram_users").update(referrerTid, {
+          username: referrer.username, // Keep the original username
+          name: referrer.name, // Keep the original name
+          points: referrer.points + 10,
+          referrals: updatedReferrals,
+        });
+      } else {
+        console.log(`User ${id} already exists in database`);
+      }
+    } catch (err) {
+      console.error("Error checking if user exists or updating referrer.", err);
+    }
+  }
+};
+
+const gifHandler = async (ctx) => {
+  const userId = ctx.message.from.id;
+  const { username = "Anonymous", first_name: name } = ctx.message.from;
+  console.log(userId, username, name);
+
+  try {
+    await chatManager.saveUser(userId, username, name);
+    console.log(`Media request from user ${userId}`);
+
+    const user = await chatManager.getUser(userId);
+    if (user.media_uses >= 9 && user.points == 0) {
+      await ctx.reply(
+        "متأسفم، شما بیش از حد استفاده کرده اید. لطفاً بعداً دوباره تلاش کنید.",
+        {
+          reply_markup: homeKeyboard.reply_markup,
+        }
+      );
+      await ctx.reply(
+        "this is your referral link to invite friends and earn points:",
+        {
+          reply_markup: homeKeyboard.reply_markup,
+        }
+      );
+      await ctx.reply(`https://t.me/soorakhi_bot?start=${userId}-${user.id}`, {
+        reply_markup: homeKeyboard.reply_markup,
+      });
+      return;
+    }
+
+    const page = Math.floor(Math.random() * 2000) + 1;
     console.log(`Fetching page: https://pornogifs.net/page/${page}/`);
     const response = await axios.get(`https://pornogifs.net/page/${page}/`, {
       headers: {
@@ -88,42 +127,35 @@ bot.hears("🍆گیف👾", async (ctx) => {
 
     if (gifs.length > 0) {
       const randomGif = gifs[Math.floor(Math.random() * gifs.length)];
-      await ctx.replyWithAnimation(
-        { url: randomGif }
-        // { reply_markup: homeKeyboard.reply_markup }
-      );
-
-      //increase the count of the media_uses in the pocketbase database. telegram_users collection. media_uses field.
-      const user = await chatManager.getUser(userId);
-      //console.log("loook here", user);
-      let used = user.media_uses;
-      //console.log("used", used);
-      used++;
-      //console.log("newValue", newValue);
-      //console.log("user", user.id);
-      await chatManager.updateUser(user.id, used);
-
-      //send the media_uses count to the user
-      ctx.reply(`تعداد استفاده از محتوا: ${used}`);
+      await ctx.replyWithAnimation({ url: randomGif });
+      await chatManager.updateUser(user.id, user.media_uses + 1);
+      ctx.reply(`تعداد استفاده از محتوا: ${user.media_uses + 1}`);
+      ctx.reply(`points: ${user.points}`);
     } else {
       await ctx.reply(
         "متأسفم، نتوانستم هیچ GIF پیدا کنیم. لطفاً بعداً دوباره تلاش کنید.",
-        { reply_markup: homeKeyboard.reply_markup }
+        {
+          reply_markup: homeKeyboard.reply_markup,
+        }
       );
     }
   } catch (error) {
     console.error("Error fetching GIF:", error);
     await ctx.reply(
       "متأسفم، خطایی در دریافت GIF رخ داد. لطفاً بعداً دوباره تلاش کنید.",
-      { reply_markup: homeKeyboard.reply_markup }
+      {
+        reply_markup: homeKeyboard.reply_markup,
+      }
     );
   }
-});
+};
+
+bot.start(handleUserStart);
+bot.hears("🍆گیف👾", gifHandler);
 
 bot.hears("🔍 یافتن چت", (ctx) => {
   const userId = ctx.message.from.id;
-  const username = ctx.message.from.username || "Anonymous";
-  const name = ctx.message.from.first_name || "Anonymous";
+  const { username = "Anonymous", first_name: name } = ctx.message.from;
   console.log(userId, username, name);
   chatManager.saveUser(userId, username, name);
   chatManager.findMatch(userId);
@@ -138,7 +170,6 @@ bot.hears("ℹ️ اطلاعات شریک", async (ctx) => {
   const userId = ctx.message.from.id;
   try {
     const partnerInfo = await chatManager.getPartnerInfo(userId);
-
     if (partnerInfo) {
       const formattedMessage = `
 ⭐️🌟 اطلاعات شریک چت شما ⭐️🌟
@@ -147,18 +178,10 @@ bot.hears("ℹ️ اطلاعات شریک", async (ctx) => {
 ━━━━━━━━━━━━━━━━━━━━━
 امیدواریم گفتگوی خوبی داشته باشید! 🌟
       `;
-
       ctx.replyWithHTML(formattedMessage, { parse_mode: "HTML" });
     } else {
-      const sadEmoji = "😔";
-      const errorEmoji = "❌";
-
       ctx.reply(
-        `${sadEmoji} اوه، متأسفیم! ${errorEmoji}
-      
-شما در حال حاضر در چتی نیستید یا مشکلی در دریافت اطلاعات شریک پیش آمده است.
-
-لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.`
+        "😔 اوه، متأسفیم! ❌ شما در حال حاضر در چتی نیستید یا مشکلی در دریافت اطلاعات شریک پیش آمده است. لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید."
       );
     }
   } catch (error) {
@@ -171,45 +194,44 @@ bot.hears("ℹ️ اطلاعات شریک", async (ctx) => {
 
 bot.on("text", (ctx) => {
   const userId = ctx.message.from.id;
-  const username = ctx.message.from.username || "Anonymous";
-  const name = ctx.message.from.first_name || "Anonymous";
+  const { username = "Anonymous", first_name: name } = ctx.message.from;
   console.log(userId, username, name);
   chatManager.saveUser(userId, username, name);
-  let chatId = ctx.message.chat.id;
-  let message = ctx.message;
-  chatManager.connect(chatId, ["text", message]);
+  chatManager.connect(ctx.message.chat.id, ["text", ctx.message]);
 });
 
 bot.on(["document", "audio", "video", "voice", "photo", "sticker"], (ctx) => {
   const userId = ctx.message.from.id;
-  const username = ctx.message.from.username || "Anonymous";
-  const name = ctx.message.from.first_name || "Anonymous";
+  const { username = "Anonymous", first_name: name } = ctx.message.from;
   console.log(userId, username, name);
   chatManager.saveUser(userId, username, name);
-  let chatId = ctx.message.chat.id;
-  let mediaFile;
+  const chatId = ctx.message.chat.id;
+  let mediaFile =
+    ctx.message.document ||
+    ctx.message.audio ||
+    ctx.message.video ||
+    ctx.message.voice ||
+    ctx.message.photo?.[ctx.message.photo.length - 1] ||
+    ctx.message.sticker;
 
-  if (ctx.message.document) mediaFile = ctx.message.document;
-  else if (ctx.message.audio) mediaFile = ctx.message.audio;
-  else if (ctx.message.video) mediaFile = ctx.message.video;
-  else if (ctx.message.voice) mediaFile = ctx.message.voice;
-  else if (ctx.message.photo) {
-    mediaFile = ctx.message.photo[ctx.message.photo.length - 1];
+  if (ctx.message.photo) {
     mediaFile.file_name = "photo.jpg";
     mediaFile.mime_type = "image/jpeg";
   } else if (ctx.message.sticker) {
-    mediaFile = ctx.message.sticker;
     mediaFile.file_name = "sticker.webp";
     mediaFile.mime_type = "image/webp";
   }
 
-  if (mediaFile.mime_type) {
-    mediaFile.file_name =
-      mediaFile.file_name || `file.${mediaFile.mime_type.split("/")[1]}`;
-  } else {
-    mediaFile.file_name = mediaFile.file_name || "file";
-  }
+  mediaFile.file_name =
+    mediaFile.file_name ||
+    `file.${mediaFile.mime_type?.split("/")[1] || "unknown"}`;
   chatManager.connect(chatId, ["file", mediaFile]);
+});
+
+bot.on("web_app_data", (ctx) => {
+  const data = ctx.webAppData.data;
+  ctx.reply(`Received data from Web App: ${data}`);
+  // Process the data as needed
 });
 
 // Launch the bot

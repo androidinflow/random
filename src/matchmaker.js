@@ -468,9 +468,10 @@ class MatchMaker {
           name: name,
         });
         console.log(`User ${userID} updated successfully`);
+        return existingUser.id;
       } else {
         console.log(`User ${userID} dont exist in database just creating`);
-        await pb.collection("telegram_users").create({
+        const newUser = await pb.collection("telegram_users").create({
           telegram_id: userID.toString(),
           username: username,
           name: name,
@@ -480,9 +481,11 @@ class MatchMaker {
           referred_by: null,
         });
         console.log(`New user ${userID} created successfully`);
+        return newUser.id;
       }
     } catch (err) {
       console.error("Error saving user:", err);
+      return null;
     }
   }
 
